@@ -3,7 +3,7 @@
 -----------------------------
 
 Low-level programming tool for IcoBoard. Runs on Raspberry Pi. Usually called
-via SSH from a Workstation (unless FPGA bit-streams are generated locally on
+via SSH from a workstation (unless FPGA bit-streams are generated locally on
 the Raspberry Pi).
 
 [Directory icosoc](icosoc/)
