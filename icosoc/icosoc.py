@@ -2,6 +2,15 @@
 
 import sys, os, glob, importlib, re
 from collections import defaultdict
+from argparse import ArgumentParser
+
+cmd = ArgumentParser ()
+cmd.add_argument \
+    ( "-c", "--no-clean-target"
+    , help   = "Don't generate clean:: target, generate CLEAN variable"
+    , action = 'store_true'
+    )
+opt = cmd.parse_args ()
 
 basedir = os.path.dirname(sys.argv[0])
 clock_freq_hz = 6000000
@@ -861,12 +870,24 @@ icosoc_mk["90-extradeps"].append("icosoc.mk: %s/mod_*/*" % basedir)
 icosoc_mk["90-extradeps"].append("icosoc.blif: %s/common/*" % basedir)
 icosoc_mk["90-extradeps"].append("icosoc.blif: %s/mod_*/*" % basedir)
 
-icosoc_mk["95-clean"].append("clean::")
-icosoc_mk["95-clean"].append("\trm -f firmware.bin firmware.elf firmware.hex firmware.map")
-icosoc_mk["95-clean"].append("\trm -f icosoc.mk icosoc.ys icosoc.pcf icosoc.v icosoc.h icosoc.c")
-icosoc_mk["95-clean"].append("\trm -f icosoc.blif icosoc.asc icosoc.bin icosoc.rpt debug.vcd")
+filelist = \
+    [ "firmware.bin firmware.elf firmware.hex firmware.map"
+    , "icosoc.mk icosoc.ys icosoc.pcf icosoc.v icosoc.h icosoc.c"
+    , "icosoc.blif icosoc.asc icosoc.bin icosoc.rpt debug.vcd"
+    ]
+if opt.no_clean_target :
+    l = "CLEAN ="
+    for f in filelist :
+        icosoc_mk["95-clean"].append(l + ' \\')
+        l = '    ' + f
+    icosoc_mk["95-clean"].append(l)
+else :
+    icosoc_mk["95-clean"].append("clean::")
+    for f in filelist :
+        icosoc_mk["95-clean"].append("\trm -f %s" % f)
 
-icosoc_mk["99-special"].append(".PHONY: clean")
+if not opt.no_clean_target :
+    icosoc_mk["99-special"].append(".PHONY: clean")
 icosoc_mk["99-special"].append(".SECONDARY:")
 
 icosoc_h.append("""
