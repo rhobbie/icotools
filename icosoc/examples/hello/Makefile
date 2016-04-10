@@ -1,4 +1,5 @@
-CC = riscv32-unknown-elf-gcc
+RISCV_TOOLS_PREFIX = /opt/riscv32ic/bin/riscv32-unknown-elf-
+CC = $(RISCV_TOOLS_PREFIX)gcc
 CFLAGS = --std=gnu99 -Os -MD -Wall
 OBJS = main.o icosoc.o
 
@@ -9,7 +10,7 @@ appimage.elf: $(OBJS)
 	chmod -x appimage.elf
 
 appimage.hex: appimage.elf
-	riscv32-unknown-elf-objcopy -O verilog appimage.elf appimage.hex
+	$(RISCV_TOOLS_PREFIX)objcopy -O verilog appimage.elf appimage.hex
 	chmod -x appimage.hex
 
 icosoc.mk: icosoc.cfg
