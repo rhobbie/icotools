@@ -132,8 +132,22 @@ icosoc_h.append("""
 
 #define ICOSOC_CLOCK_FREQ_HZ %d
 
-static inline void register_irq_handler(void(*irq_handler)(uint32_t)) {
+static inline void icosoc_irq(void(*irq_handler)(uint32_t,uint32_t*)) {
     *((uint32_t*)8) = (uint32_t)irq_handler;
+}
+
+static inline uint32_t icosoc_maskirq(uint32_t mask) {
+    asm volatile ("custom0 %%0,%%0,0,3" : "+r" (mask));
+    return mask;
+}
+
+static inline uint32_t icosoc_timer(uint32_t ticks) {
+    asm volatile ("custom0 %%0,%%0,0,5" : "+r" (ticks));
+    return ticks;
+}
+
+static inline void icosoc_sbreak() {
+    asm volatile ("sbreak");
 }
 """ % clock_freq_hz);
 

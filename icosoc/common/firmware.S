@@ -98,6 +98,9 @@ irq_vec:
 	// arg0 = interrupt type bitmask
 	getq x10, q1
 
+	// arg1 = pointer to stored registers
+	mv x11, x2
+
 	// load irq handler address to x1 (ra)
 	lw x1, 8(x0)
 

@@ -8,7 +8,7 @@ void update_leds()
 	*(volatile uint32_t*)0x20000000 = (status++) & 7;
 }
 
-void irq_handler(uint32_t irq_mask)
+void irq_handler(uint32_t irq_mask, uint32_t *regs)
 {
 	// timer interrupt
 	if (irq_mask & 1)
@@ -17,18 +17,32 @@ void irq_handler(uint32_t irq_mask)
 		update_leds();
 
 		// restart timer
-		asm volatile ("custom0 x0,%0,0,5" : : "r" (1000000)); // timer zero, 1000000
+		icosoc_timer(1000000);
+	}
+
+	// SBREAK, ILLINS, or BUSERROR
+	if (irq_mask & 6)
+	{
+		printf("System error!\n");
+		icosoc_sbreak();
 	}
 }
 
 int main()
 {
 	// register IRQ handler
-	register_irq_handler(irq_handler);
+	icosoc_irq(irq_handler);
 
-	// enable IRQs and start timer
-	asm volatile ("custom0 x0,x0,0,3"); // maskirq zero, zero
-	asm volatile ("custom0 x0,%0,0,5" : : "r" (1000000)); // timer zero, 1000000
+	// enable IRQs
+	icosoc_maskirq(0);
+
+	// start timer
+	icosoc_timer(1000000);
+
+#if 0
+	// calling sbreak will print "System error!"
+	icosoc_sbreak();
+#endif
 
 	while (1) { }
 }
