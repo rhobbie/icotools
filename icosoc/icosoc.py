@@ -128,7 +128,13 @@ icosoc_h.append("""
 #ifndef ICOSOC_H
 #define ICOSOC_H
 
+#include <stdint.h>
+
 #define ICOSOC_CLOCK_FREQ_HZ %d
+
+static inline void register_irq_handler(void(*irq_handler)(uint32_t)) {
+    *((uint32_t*)8) = (uint32_t)irq_handler;
+}
 """ % clock_freq_hz);
 
 icosoc_c.append("""
@@ -136,7 +142,6 @@ icosoc_c.append("""
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#include <stdint.h>
 
 """);
 
@@ -859,7 +864,7 @@ icosoc_mk["50-synthesis"].append("icosoc.rpt: icosoc.asc")
 icosoc_mk["50-synthesis"].append("\ticetime -d hx8k -tr icosoc.rpt icosoc.asc")
 
 icosoc_mk["70-firmware"].append("firmware.elf: %s/common/firmware.S %s/common/firmware.c %s/common/firmware.lds" % (basedir, basedir, basedir))
-icosoc_mk["70-firmware"].append("\triscv32-unknown-elf-gcc -Os -m32 -ffreestanding -nostdlib -Wall -o firmware.elf %s/common/firmware.S %s/common/firmware.c \\" % (basedir, basedir))
+icosoc_mk["70-firmware"].append("\triscv32-unknown-elf-gcc -Os -m32 -march=RV32IXcustom -ffreestanding -nostdlib -Wall -o firmware.elf %s/common/firmware.S %s/common/firmware.c \\" % (basedir, basedir))
 icosoc_mk["70-firmware"].append("\t\t\t--std=gnu99 -Wl,-Bstatic,-T,%s/common/firmware.lds,-Map,firmware.map,--strip-debug -lgcc" % basedir)
 icosoc_mk["70-firmware"].append("\tchmod -x firmware.elf")
 
