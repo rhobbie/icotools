@@ -137,7 +137,7 @@ static inline void icosoc_irq(void(*irq_handler)(uint32_t,uint32_t*)) {
 }
 
 static inline uint32_t icosoc_maskirq(uint32_t mask) {
-    asm volatile ("custom0 %%0,%%0,0,3" : "+r" (mask));
+    asm volatile ("custom0 %%0,%%0,0,3" : "+r" (mask) : : "memory");
     return mask;
 }
 
@@ -147,7 +147,7 @@ static inline uint32_t icosoc_timer(uint32_t ticks) {
 }
 
 static inline void icosoc_sbreak() {
-    asm volatile ("sbreak");
+    asm volatile ("sbreak" : : : "memory");
 }
 """ % clock_freq_hz);
 
