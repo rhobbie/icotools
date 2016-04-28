@@ -7,12 +7,16 @@
 /examples/*/firmware.map
 /examples/*/icosoc.asc
 /examples/*/icosoc.bin
+/examples/*/icosoc.log
 /examples/*/icosoc.blif
 /examples/*/icosoc.c
 /examples/*/icosoc.h
 /examples/*/icosoc.mk
 /examples/*/icosoc.pcf
 /examples/*/icosoc.v
+/examples/*/testbench
+/examples/*/testbench.v
+/examples/*/testbench.vcd
 /examples/*/icosoc.ys
 /examples/*/*.d
 /examples/*/*.o

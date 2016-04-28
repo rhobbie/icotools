@@ -32,10 +32,6 @@ module icosoc_mod_gpio #(
 		ctrl_rdat <= 'bx;
 		ctrl_done <= 0;
 
-		recv_shift_out <= 0;
-		send_shift_in <= 0;
-		send_din <= 'bx;
-
 		// Register file:
 		//   0x00 data register
 		//   0x04 direction register

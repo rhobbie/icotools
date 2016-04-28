@@ -19,6 +19,7 @@ icosoc_mk = defaultdict(list)
 icosoc_ys = defaultdict(list)
 icosoc_pcf = defaultdict(list)
 icosoc_v = defaultdict(list)
+testbench = defaultdict(list)
 
 icosoc_c = list()
 icosoc_h = list()
@@ -26,6 +27,8 @@ icosoc_h = list()
 mods = dict()
 used_plocs = set()
 used_modtypes = set()
+iowires = set()
+modvlog = set()
 
 enable_compressed_isa = False
 
@@ -58,6 +61,7 @@ def make_pins(pname):
     assert ploc not in used_plocs
     used_plocs.add(ploc)
 
+    iowires.add(pname)
     icosoc_v["12-iopins"].append("    inout %s," % pname)
     icosoc_pcf["12-iopins"].append("set_io %s %s" % (pname, ploc))
     return [ pname ]
@@ -95,6 +99,7 @@ def parse_cfg(f):
             if line[1] not in used_modtypes:
                 used_modtypes.add(line[1])
                 icosoc_ys["12-readvlog"].append("read_verilog %s/mod_%s/mod_%s.v" % (basedir, line[1], line[1]))
+                modvlog.add("%s/mod_%s/mod_%s.v" % (basedir, line[1], line[1]))
             continue
 
         if line[0] == "connect":
@@ -702,6 +707,8 @@ icosoc_v["10-moddecl"].append("    input CLK12MHZ,")
 icosoc_v["10-moddecl"].append("    output reg LED1, LED2, LED3,")
 icosoc_v["10-moddecl"].append("")
 
+iowires |= set("CLK12MHZ LED1 LED2 LED3".split())
+
 icosoc_v["12-iopins"].append("")
 
 icosoc_v["15-moddecl"].append("    output reg SPI_FLASH_CS,")
@@ -709,12 +716,21 @@ icosoc_v["15-moddecl"].append("    output reg SPI_FLASH_SCLK,")
 icosoc_v["15-moddecl"].append("    output reg SPI_FLASH_MOSI,")
 icosoc_v["15-moddecl"].append("    input      SPI_FLASH_MISO,")
 icosoc_v["15-moddecl"].append("")
+
+iowires.add("SPI_FLASH_CS")
+iowires.add("SPI_FLASH_SCLK")
+iowires.add("SPI_FLASH_MOSI")
+iowires.add("SPI_FLASH_MISO")
+
 icosoc_v["15-moddecl"].append("    // RasPi Interface: 9 Data Lines (cmds have MSB set)")
 icosoc_v["15-moddecl"].append("    inout RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_24, RASPI_35, RASPI_36,")
 icosoc_v["15-moddecl"].append("")
 icosoc_v["15-moddecl"].append("    // RasPi Interface: Control Lines")
 icosoc_v["15-moddecl"].append("    input RASPI_38, RASPI_40,")
 icosoc_v["15-moddecl"].append("")
+
+iowires |= set("RASPI_11 RASPI_12 RASPI_15 RASPI_16 RASPI_19 RASPI_21 RASPI_24 RASPI_35 RASPI_36 RASPI_38 RASPI_40".split())
+
 icosoc_v["15-moddecl"].append("    // SRAM Interface")
 icosoc_v["15-moddecl"].append("    output SRAM_A0, SRAM_A1, SRAM_A2, SRAM_A3, SRAM_A4, SRAM_A5, SRAM_A6, SRAM_A7,")
 icosoc_v["15-moddecl"].append("    output SRAM_A8, SRAM_A9, SRAM_A10, SRAM_A11, SRAM_A12, SRAM_A13, SRAM_A14, SRAM_A15,")
@@ -722,6 +738,12 @@ icosoc_v["15-moddecl"].append("    inout SRAM_D0, SRAM_D1, SRAM_D2, SRAM_D3, SRA
 icosoc_v["15-moddecl"].append("    inout SRAM_D8, SRAM_D9, SRAM_D10, SRAM_D11, SRAM_D12, SRAM_D13, SRAM_D14, SRAM_D15,")
 icosoc_v["15-moddecl"].append("    output SRAM_CE, SRAM_WE, SRAM_OE, SRAM_LB, SRAM_UB")
 icosoc_v["15-moddecl"].append(");")
+
+iowires |= set("SRAM_A0 SRAM_A1 SRAM_A2 SRAM_A3 SRAM_A4 SRAM_A5 SRAM_A6 SRAM_A7".split())
+iowires |= set("SRAM_A8 SRAM_A9 SRAM_A10 SRAM_A11 SRAM_A12 SRAM_A13 SRAM_A14 SRAM_A15".split())
+iowires |= set("SRAM_D0 SRAM_D1 SRAM_D2 SRAM_D3 SRAM_D4 SRAM_D5 SRAM_D6 SRAM_D7".split())
+iowires |= set("SRAM_D8 SRAM_D9 SRAM_D10 SRAM_D11 SRAM_D12 SRAM_D13 SRAM_D14 SRAM_D15".split())
+iowires |= set("SRAM_CE SRAM_WE SRAM_OE SRAM_LB SRAM_UB".split())
 
 icosoc_v["95-endmod"].append("endmodule")
 
@@ -863,19 +885,38 @@ icosoc_ys["10-readvlog"].append("read_verilog %s/common/icosoc_raspif.v" % based
 icosoc_ys["50-synthesis"].append("synth_ice40 -top icosoc -blif icosoc.blif")
 
 icosoc_mk["50-synthesis"].append("icosoc.blif: icosoc.v icosoc.ys firmware.hex")
-icosoc_mk["50-synthesis"].append("\tyosys icosoc.ys")
+icosoc_mk["50-synthesis"].append("\tyosys -l icosoc.log -v3 icosoc.ys")
 
 icosoc_mk["50-synthesis"].append("icosoc.asc: icosoc.blif icosoc.pcf")
 icosoc_mk["50-synthesis"].append("\tset -x; for seed in 1234 2345 4567 5678 6789; do \\")
 icosoc_mk["50-synthesis"].append("\tarachne-pnr -s $$seed -d 8k -p icosoc.pcf -o icosoc.asc icosoc.blif && exit 0; \\")
 icosoc_mk["50-synthesis"].append("\tdone; false")
 
-
 icosoc_mk["50-synthesis"].append("icosoc.bin: icosoc.asc")
 icosoc_mk["50-synthesis"].append("\ticepack icosoc.asc icosoc.bin")
 
 icosoc_mk["50-synthesis"].append("icosoc.rpt: icosoc.asc")
 icosoc_mk["50-synthesis"].append("\ticetime -d hx8k -tr icosoc.rpt icosoc.asc")
+
+tbfiles = set()
+tbfiles.add("icosoc.v")
+tbfiles.add("testbench.v")
+tbfiles.add("%s/common/picorv32.v" % basedir)
+tbfiles.add("%s/common/icosoc_crossclkfifo.v" % basedir)
+tbfiles.add("%s/common/icosoc_debugger.v" % basedir)
+tbfiles.add("%s/common/icosoc_raspif.v" % basedir)
+tbfiles.add("%s/common/sim_sram.v" % basedir)
+tbfiles.add("%s/common/sim_spiflash.v" % basedir)
+tbfiles |= modvlog
+
+icosoc_mk["60-simulation"].append("testbench: %s" % (" ".join(tbfiles)))
+icosoc_mk["60-simulation"].append("\tiverilog -o testbench %s $(shell yosys-config --datdir/ice40/cells_sim.v)" % (" ".join(tbfiles)))
+
+icosoc_mk["60-simulation"].append("testbench_vcd: testbench")
+icosoc_mk["60-simulation"].append("\tvvp -N testbench +vcd")
+
+icosoc_mk["60-simulation"].append("testbench_novcd: testbench")
+icosoc_mk["60-simulation"].append("\tvvp -N testbench")
 
 icosoc_mk["70-firmware"].append("firmware.elf: %s/common/firmware.S %s/common/firmware.c %s/common/firmware.lds" % (basedir, basedir, basedir))
 icosoc_mk["70-firmware"].append("\triscv32-unknown-elf-gcc -Os -m32 -march=RV32IXcustom -ffreestanding -nostdlib -Wall -o firmware.elf %s/common/firmware.S %s/common/firmware.c \\" % (basedir, basedir))
@@ -899,28 +940,128 @@ icosoc_mk["90-extradeps"].append("icosoc.mk: %s/mod_*/*" % basedir)
 icosoc_mk["90-extradeps"].append("icosoc.blif: %s/common/*" % basedir)
 icosoc_mk["90-extradeps"].append("icosoc.blif: %s/mod_*/*" % basedir)
 
-filelist = \
-    [ "firmware.bin firmware.elf firmware.hex firmware.map"
-    , "icosoc.mk icosoc.ys icosoc.pcf icosoc.v icosoc.h icosoc.c"
-    , "icosoc.blif icosoc.asc icosoc.bin icosoc.rpt debug.vcd"
-    ]
-if opt.no_clean_target :
+filelist = [
+    "firmware.bin firmware.elf firmware.hex firmware.map",
+    "icosoc.mk icosoc.ys icosoc.pcf icosoc.v icosoc.h icosoc.c",
+    "icosoc.blif icosoc.asc icosoc.bin icosoc.log icosoc.rpt debug.vcd",
+    "testbench", "testbench.v", "testbench.vcd",
+]
+
+if opt.no_clean_target:
     l = "CLEAN ="
-    for f in filelist :
+    for f in filelist:
         icosoc_mk["95-clean"].append(l + ' \\')
         l = '    ' + f
     icosoc_mk["95-clean"].append(l)
-else :
+else:
     icosoc_mk["95-clean"].append("clean::")
     for f in filelist :
         icosoc_mk["95-clean"].append("\trm -f %s" % f)
 
-if not opt.no_clean_target :
+if not opt.no_clean_target:
     icosoc_mk["99-special"].append(".PHONY: clean")
 icosoc_mk["99-special"].append(".SECONDARY:")
 
 icosoc_h.append("""
 #endif /* ICOSOC_H */
+""");
+
+testbench["10-header"].append("""
+module testbench;
+
+    reg clk = 1;
+    always #5 clk = ~clk;
+""");
+
+for net in sorted(iowires):
+    testbench["20-ionets"].append("    wire %s;" % net)
+testbench["20-ionets"].append("")
+
+testbench["30-inst"].append("    icosoc uut (")
+for net in sorted(iowires):
+    testbench["30-inst"].append("        .%s(%s)," % (net, net))
+testbench["30-inst"][-1] = testbench["30-inst"][-1].rstrip(",")
+testbench["30-inst"].append("    );")
+testbench["30-inst"].append("")
+
+testbench["30-inst"].append("    sim_sram sram (")
+for net in sorted(iowires):
+    if net.startswith("SRAM_"):
+        testbench["30-inst"].append("        .%s(%s)," % (net, net))
+testbench["30-inst"][-1] = testbench["30-inst"][-1].rstrip(",")
+testbench["30-inst"].append("    );")
+testbench["30-inst"].append("")
+
+testbench["30-inst"].append("    sim_spiflash spiflash (")
+for net in sorted(iowires):
+    if net.startswith("SPI_FLASH_"):
+        testbench["30-inst"].append("        .%s(%s)," % (net, net))
+testbench["30-inst"][-1] = testbench["30-inst"][-1].rstrip(",")
+testbench["30-inst"].append("    );")
+testbench["30-inst"].append("")
+
+testbench["90-footer"].append("""
+    assign CLK12MHZ = clk;
+
+    wire [8:0] raspi_din;
+    reg [8:0] raspi_dout = 9'b z_zzzz_zzzz;
+    reg raspi_clk = 0;
+    reg raspi_dir = 0;
+
+    assign {RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_24, RASPI_35, RASPI_36} = raspi_dout;
+    assign raspi_din = {RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_24, RASPI_35, RASPI_36};
+    assign RASPI_40 = raspi_clk, RASPI_38 = raspi_dir;
+
+    task raspi_send_word(input [8:0] data);
+        begin
+            raspi_clk <= 0;
+            raspi_dir <= 1;
+            raspi_dout <= {1'b0, data};
+
+            repeat (5) @(posedge clk);
+            raspi_clk <= 1;
+            repeat (10) @(posedge clk);
+            raspi_clk <= 0;
+            repeat (5) @(posedge clk);
+        end
+    endtask
+
+    task raspi_recv_word(output [8:0] data);
+        begin
+            raspi_clk <= 0;
+            raspi_dir <= 0;
+            raspi_dout <= 9'b z_zzzz_zzzz;
+
+            repeat (5) @(posedge clk);
+            raspi_clk <= 1;
+            repeat (10) @(posedge clk);
+            data = raspi_din;
+            raspi_clk <= 0;
+            repeat (5) @(posedge clk);
+        end
+    endtask
+
+    reg [7:0] raspi_current_ep;
+    reg [8:0] raspi_current_word;
+
+    initial begin
+        if ($test$plusargs("vcd")) begin
+            $dumpfile("testbench.vcd");
+            $dumpvars(0, testbench);
+        end
+
+        $display("-- Printing console messages --");
+        forever begin
+            raspi_recv_word(raspi_current_word);
+            if (raspi_current_word[8]) begin
+                raspi_current_ep = raspi_current_word[7:0];
+            end else if (raspi_current_ep == 2) begin
+                $write("%c", raspi_current_word[7:0]);
+                $fflush();
+            end
+        end
+    end
+endmodule
 """);
 
 with open(basedir + "/common/syscalls.c", "r") as f:
@@ -948,6 +1089,7 @@ write_outfile_dict("icosoc.mk", icosoc_mk, "#")
 write_outfile_dict("icosoc.ys", icosoc_ys, "#")
 write_outfile_dict("icosoc.pcf", icosoc_pcf, "#")
 write_outfile_dict("icosoc.v", icosoc_v, "//")
+write_outfile_dict("testbench.v", testbench, "//")
 write_outfile_list("icosoc.h", icosoc_h, "//")
 write_outfile_list("icosoc.c", icosoc_c, "//")
 
