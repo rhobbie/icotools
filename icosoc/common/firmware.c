@@ -155,6 +155,20 @@ int main()
 	spi_flash_cs(false);
 	console_putc('\n');
 
+	console_puts("Flash Data: ");
+	spi_flash_cs(true);
+	spi_flash_xfer(0x03);
+	spi_flash_xfer(0x00);
+	spi_flash_xfer(0x00);
+	spi_flash_xfer(0x00);
+	while (1) {
+		char c = spi_flash_xfer(0x00);
+		if (c == 0) break;
+		console_putc(c);
+	}
+	spi_flash_cs(false);
+	console_putc('\n');
+
 	// flash_power_down
 	spi_flash_cs(true);
 	spi_flash_xfer(0xb9);

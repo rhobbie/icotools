@@ -912,10 +912,10 @@ tbfiles |= modvlog
 icosoc_mk["60-simulation"].append("testbench: %s" % (" ".join(tbfiles)))
 icosoc_mk["60-simulation"].append("\tiverilog -o testbench %s $(shell yosys-config --datdir/ice40/cells_sim.v)" % (" ".join(tbfiles)))
 
-icosoc_mk["60-simulation"].append("testbench_vcd: testbench")
+icosoc_mk["60-simulation"].append("testbench_vcd: testbench firmware.hex")
 icosoc_mk["60-simulation"].append("\tvvp -N testbench +vcd")
 
-icosoc_mk["60-simulation"].append("testbench_novcd: testbench")
+icosoc_mk["60-simulation"].append("testbench_novcd: testbench firmware.hex")
 icosoc_mk["60-simulation"].append("\tvvp -N testbench")
 
 icosoc_mk["70-firmware"].append("firmware.elf: %s/common/firmware.S %s/common/firmware.c %s/common/firmware.lds" % (basedir, basedir, basedir))
