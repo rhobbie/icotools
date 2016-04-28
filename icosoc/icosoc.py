@@ -671,7 +671,11 @@ icosoc_v["72-bus"].append("""
 icosoc_v["74-bus"].append("""
                     end else begin
                         if (mem_addr[23:16] == 0) begin
+`ifdef TESTBENCH
+                            if (mem_addr[7:0] == 8'h 00) mem_rdata <= {LED3, LED2, LED1} | 32'h8000_0000;
+`else
                             if (mem_addr[7:0] == 8'h 00) mem_rdata <= {LED3, LED2, LED1};
+`endif
                             if (mem_addr[7:0] == 8'h 04) mem_rdata <= {SPI_FLASH_CS, SPI_FLASH_SCLK, SPI_FLASH_MOSI, SPI_FLASH_MISO};
                             if (mem_addr[7:0] == 8'h 08) mem_rdata <= spiflash_data;
                         end
@@ -910,7 +914,7 @@ tbfiles.add("%s/common/sim_spiflash.v" % basedir)
 tbfiles |= modvlog
 
 icosoc_mk["60-simulation"].append("testbench: %s" % (" ".join(tbfiles)))
-icosoc_mk["60-simulation"].append("\tiverilog -o testbench %s $(shell yosys-config --datdir/ice40/cells_sim.v)" % (" ".join(tbfiles)))
+icosoc_mk["60-simulation"].append("\tiverilog -D TESTBENCH -o testbench %s $(shell yosys-config --datdir/ice40/cells_sim.v)" % (" ".join(tbfiles)))
 
 icosoc_mk["60-simulation"].append("testbench_vcd: testbench firmware.hex")
 icosoc_mk["60-simulation"].append("\tvvp -N testbench +vcd")
@@ -1059,6 +1063,18 @@ testbench["90-footer"].append("""
                 $write("%c", raspi_current_word[7:0]);
                 $fflush();
             end
+        end
+    end
+
+    initial begin:appimgage_init
+        reg [7:0] appimage [0:16*1024*1024-1];
+        integer i;
+
+        $readmemh("appimage.hex", appimage);
+
+        for (i = 0; i < 'h10000; i=i+1) begin
+            sram.sram_memory[(i + 'h8000) % 'h10000][7:0] = appimage['h10000 + 2*i];
+            sram.sram_memory[(i + 'h8000) % 'h10000][15:8] = appimage['h10000 + 2*i + 1];
         end
     end
 endmodule

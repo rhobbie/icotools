@@ -136,6 +136,13 @@ static int hex2int(char ch)
 
 int main()
 {
+	// detect verilog testbench
+	if ((*(volatile uint32_t*)0x20000000) | 0x80000000) {
+		console_puts(".\nBootloader> " + 2);
+		console_puts("TESTBENCH\n");
+		return 0;
+	}
+
 	setled(1); // LEDs ..O
 
 #if 0
