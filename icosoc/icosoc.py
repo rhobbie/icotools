@@ -31,6 +31,7 @@ iowires = set()
 modvlog = set()
 
 enable_compressed_isa = False
+enable_muldiv_isa = False
 
 pmod_locs = [
     "D8 C7 C6 B3 A1 A2 B1 B2".split(),
@@ -68,6 +69,8 @@ def make_pins(pname):
 
 def parse_cfg(f):
     global enable_compressed_isa
+    global enable_muldiv_isa
+
     current_mod_name = None
     cm = None
 
@@ -81,6 +84,12 @@ def parse_cfg(f):
             assert len(line) == 1
             assert current_mod_name is None
             enable_compressed_isa = True
+            continue
+
+        if line[0] == "muldiv_isa":
+            assert len(line) == 1
+            assert current_mod_name is None
+            enable_muldiv_isa = True
             continue
 
         if line[0] == "mod":
@@ -398,7 +407,9 @@ icosoc_v["40-cpu"].append("""
     wire resetn_picorv32 = resetn && !prog_mem_reset;
 
     picorv32 #(
-        .COMPRESSED_ISA(%d),
+        .COMPRESSED_ISA(<compisa>),
+        .ENABLE_MUL(<muldiv>),
+        .ENABLE_DIV(<muldiv>),
         .ENABLE_IRQ(1)
     ) cpu (
         .clk       (clk            ),
@@ -413,7 +424,9 @@ icosoc_v["40-cpu"].append("""
         .mem_rdata (mem_rdata      ),
         .irq       (32'b0          )
     );
-""" % (1 if enable_compressed_isa else 0))
+"""
+.replace("<compisa>", ("1" if enable_compressed_isa else "1"))
+.replace("<muldiv>", ("1" if enable_muldiv_isa else "1")))
 
 icosoc_v["50-mods"].append("""
     // -------------------------------
