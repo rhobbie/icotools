@@ -161,7 +161,7 @@ int main()
 #endif
 
 	// detect verilog testbench
-	if ((*(volatile uint32_t*)0x20000000) | 0x80000000) {
+	if ((*(volatile uint32_t*)0x20000000) & 0x80000000) {
 		console_puts(".\nBootloader> " + 2);
 		console_puts("TESTBENCH\n");
 		return 0;
