@@ -576,7 +576,7 @@ if enable_flashmem:
 
     wire [23:0] flashmem_addr = mem_addr;
     wire [31:0] flashmem_rdata;
-    wire flashmem_valid = mem_valid && (mem_addr & 32'hC000_0000) == 32'h4000_0000;
+    wire flashmem_valid = mem_valid && !mem_ready && (mem_addr & 32'hC000_0000) == 32'h4000_0000;
     wire flashmem_ready;
 
     wire flashmem_cs;

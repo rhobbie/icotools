@@ -145,7 +145,7 @@ int main()
 	spi_flash_cs(false);
 	console_putc('\n');
 
-	console_puts("Flash Data: ");
+	console_puts("Flash Data (SPI): ");
 	spi_flash_cs(true);
 	spi_flash_xfer(0x03);
 	spi_flash_xfer(0x00);
@@ -157,6 +157,11 @@ int main()
 		console_putc(c);
 	}
 	spi_flash_cs(false);
+	console_putc('\n');
+
+	console_puts("Flash Data (MEM): ");
+	for (char *p = (void*)0x40000000; *p; p++)
+		console_putc(*p);
 	console_putc('\n');
 #endif
 
