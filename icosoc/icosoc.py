@@ -433,8 +433,8 @@ icosoc_v["40-cpu"].append("""
         .irq       (32'b0          )
     );
 """
-.replace("<compisa>", ("1" if enable_compressed_isa else "1"))
-.replace("<muldiv>", ("1" if enable_muldiv_isa else "1")))
+.replace("<compisa>", ("1" if enable_compressed_isa else "0"))
+.replace("<muldiv>", ("1" if enable_muldiv_isa else "0")))
 
 icosoc_v["50-mods"].append("""
     // -------------------------------
