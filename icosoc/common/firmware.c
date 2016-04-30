@@ -87,11 +87,6 @@ static int console_getc()
 		in_flash_mode = true;
 		spi_flash_cs(false);
 
-		// flash_power_up
-		spi_flash_cs(true);
-		spi_flash_xfer(0xab);
-		spi_flash_cs(false);
-
 		// read data at 256 kB offset
 		spi_flash_cs(true);
 		spi_flash_xfer(0x03);
@@ -105,11 +100,6 @@ static int console_getc()
 	if (c == '*')
 	{
 		// end of read
-		spi_flash_cs(false);
-
-		// flash_power_down
-		spi_flash_cs(true);
-		spi_flash_xfer(0xb9);
 		spi_flash_cs(false);
 
 		return 0;
@@ -136,22 +126,15 @@ static int hex2int(char ch)
 
 int main()
 {
-	// detect verilog testbench
-	if ((*(volatile uint32_t*)0x20000000) | 0x80000000) {
-		console_puts(".\nBootloader> " + 2);
-		console_puts("TESTBENCH\n");
-		return 0;
-	}
-
-	setled(1); // LEDs ..O
-
-#if 0
 	// flash_power_up
-	spi_flash_cs(false);
+	// we simply send a power_up command to the serial flash once at bootup.
+	// the power_down command (0xb9) is never sent. so no other code needs to bother
+	// about power_up/power_down. Most flash chips ignore those commands anyways..
 	spi_flash_cs(true);
 	spi_flash_xfer(0xab);
 	spi_flash_cs(false);
 
+#if 0
 	console_puts("Flash ID:");
 	spi_flash_cs(true);
 	spi_flash_xfer(0x9f);
@@ -175,12 +158,16 @@ int main()
 	}
 	spi_flash_cs(false);
 	console_putc('\n');
-
-	// flash_power_down
-	spi_flash_cs(true);
-	spi_flash_xfer(0xb9);
-	spi_flash_cs(false);
 #endif
+
+	// detect verilog testbench
+	if ((*(volatile uint32_t*)0x20000000) | 0x80000000) {
+		console_puts(".\nBootloader> " + 2);
+		console_puts("TESTBENCH\n");
+		return 0;
+	}
+
+	setled(1); // LEDs ..O
 
 	console_puts(".\nBootloader> " + 2);
 	uint8_t *memcursor = (uint8_t*)(64 * 1024);

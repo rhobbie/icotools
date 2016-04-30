@@ -32,6 +32,7 @@ modvlog = set()
 
 enable_compressed_isa = False
 enable_muldiv_isa = False
+enable_flashmem = False
 
 pmod_locs = [
     "D8 C7 C6 B3 A1 A2 B1 B2".split(),
@@ -70,6 +71,7 @@ def make_pins(pname):
 def parse_cfg(f):
     global enable_compressed_isa
     global enable_muldiv_isa
+    global enable_flashmem
 
     current_mod_name = None
     cm = None
@@ -90,6 +92,12 @@ def parse_cfg(f):
             assert len(line) == 1
             assert current_mod_name is None
             enable_muldiv_isa = True
+            continue
+
+        if line[0] == "flashmem":
+            assert len(line) == 1
+            assert current_mod_name is None
+            enable_flashmem = True
             continue
 
         if line[0] == "mod":
@@ -561,6 +569,66 @@ icosoc_v["60-debug"].append("""
     };
 """)
 
+if enable_flashmem:
+    icosoc_v["68-flashmem"].append("""
+    // -------------------------------
+    // Flashmem and SPI Flash Interface
+
+    wire [23:0] flashmem_addr = mem_addr;
+    wire [31:0] flashmem_rdata;
+    wire flashmem_valid = mem_valid && (mem_addr & 32'hC000_0000) == 32'h4000_0000;
+    wire flashmem_ready;
+
+    wire flashmem_cs;
+    wire flashmem_sclk;
+    wire flashmem_mosi;
+    wire flashmem_miso;
+
+    reg spiflash_cs;
+    reg spiflash_sclk;
+    reg spiflash_mosi;
+    wire spiflash_miso;
+
+    reg [7:0] spiflash_data;
+    reg [3:0] spiflash_state;
+
+    assign SPI_FLASH_CS = flashmem_cs & spiflash_cs;
+    assign SPI_FLASH_SCLK = !flashmem_cs ? flashmem_sclk : spiflash_sclk;
+    assign SPI_FLASH_MOSI = !flashmem_cs ? flashmem_mosi : spiflash_mosi;
+    assign flashmem_miso = SPI_FLASH_MISO, spiflash_miso = SPI_FLASH_MISO;
+
+    icosoc_flashmem flashmem (
+        .clk(clk),
+        .resetn(resetn),
+        .valid(flashmem_valid),
+        .ready(flashmem_ready),
+        .addr(flashmem_addr),
+        .rdata(flashmem_rdata),
+        .spi_cs(flashmem_cs),
+        .spi_sclk(flashmem_sclk),
+        .spi_mosi(flashmem_mosi),
+        .spi_miso(flashmem_miso)
+    );
+""")
+else:
+    icosoc_v["68-flashmem"].append("""
+    // -------------------------------
+    // SPI Flash Interface
+
+    reg spiflash_cs;
+    reg spiflash_sclk;
+    reg spiflash_mosi;
+    wire spiflash_miso;
+
+    reg [7:0] spiflash_data;
+    reg [3:0] spiflash_state;
+
+    assign SPI_FLASH_CS = spiflash_cs;
+    assign SPI_FLASH_SCLK = spiflash_sclk;
+    assign SPI_FLASH_MOSI = spiflash_mosi;
+    assign spiflash_miso = SPI_FLASH_MISO;
+""")
+
 icosoc_v["70-bus"].append("""
     // -------------------------------
     // Memory/IO Interface
@@ -568,9 +636,6 @@ icosoc_v["70-bus"].append("""
     localparam BOOT_MEM_SIZE = 1024;
     reg [31:0] memory [0:BOOT_MEM_SIZE-1];
     initial $readmemh("firmware.hex", memory);
-
-    reg [7:0] spiflash_data;
-    reg [3:0] spiflash_state;
 
     always @(posedge clk) begin
         mem_ready <= 0;
@@ -592,9 +657,9 @@ icosoc_v["72-bus"].append("""
             LED2 <= 0;
             LED3 <= 0;
 
-            SPI_FLASH_CS   <= 1;
-            SPI_FLASH_SCLK <= 1;
-            SPI_FLASH_MOSI <= 0;
+            spiflash_cs   <= 1;
+            spiflash_sclk <= 1;
+            spiflash_mosi <= 0;
 
             send_ep2_valid <= 0;
             spiflash_state <= 0;
@@ -663,18 +728,18 @@ icosoc_v["72-bus"].append("""
                     if (mem_wstrb) begin
                         if (mem_addr[23:16] == 0) begin
                             if (mem_addr[7:0] == 8'h 00) {LED3, LED2, LED1} <= mem_wdata;
-                            if (mem_addr[7:0] == 8'h 04) {SPI_FLASH_CS, SPI_FLASH_SCLK, SPI_FLASH_MOSI} <= mem_wdata[3:1];
+                            if (mem_addr[7:0] == 8'h 04) {spiflash_cs, spiflash_sclk, spiflash_mosi} <= mem_wdata[3:1];
                             if (mem_addr[7:0] == 8'h 08) begin
                                 if (spiflash_state == 0) begin
                                     spiflash_data <= mem_wdata;
-                                    SPI_FLASH_MOSI <= mem_wdata[7];
+                                    spiflash_mosi <= mem_wdata[7];
                                 end else begin
                                     if (spiflash_state[0])
-                                        spiflash_data <= {spiflash_data, SPI_FLASH_MISO};
+                                        spiflash_data <= {spiflash_data, spiflash_miso};
                                     else
-                                        SPI_FLASH_MOSI <= spiflash_data[7];
+                                        spiflash_mosi <= spiflash_data[7];
                                 end
-                                SPI_FLASH_SCLK <= spiflash_state[0];
+                                spiflash_sclk <= spiflash_state[0];
                                 mem_ready <= spiflash_state == 15;
                                 spiflash_state <= spiflash_state + 1;
                             end
@@ -689,7 +754,7 @@ icosoc_v["74-bus"].append("""
 `else
                             if (mem_addr[7:0] == 8'h 00) mem_rdata <= {LED3, LED2, LED1};
 `endif
-                            if (mem_addr[7:0] == 8'h 04) mem_rdata <= {SPI_FLASH_CS, SPI_FLASH_SCLK, SPI_FLASH_MOSI, SPI_FLASH_MISO};
+                            if (mem_addr[7:0] == 8'h 04) mem_rdata <= {spiflash_cs, spiflash_sclk, spiflash_mosi, spiflash_miso};
                             if (mem_addr[7:0] == 8'h 08) mem_rdata <= spiflash_data;
                         end
 """)
@@ -714,6 +779,17 @@ icosoc_v["76-bus"].append("""
                         mem_ready <= 1;
                     end
                 end
+""")
+
+if enable_flashmem:
+    icosoc_v["77-bus"].append("""
+                (mem_addr & 32'hC000_0000) == 32'h4000_0000: begin
+                    mem_rdata <= flashmem_rdata;
+                    mem_ready <= flashmem_ready;
+                end
+""")
+
+icosoc_v["78-bus"].append("""
             endcase
         end
     end
@@ -728,10 +804,10 @@ iowires |= set("CLK12MHZ LED1 LED2 LED3".split())
 
 icosoc_v["12-iopins"].append("")
 
-icosoc_v["15-moddecl"].append("    output reg SPI_FLASH_CS,")
-icosoc_v["15-moddecl"].append("    output reg SPI_FLASH_SCLK,")
-icosoc_v["15-moddecl"].append("    output reg SPI_FLASH_MOSI,")
-icosoc_v["15-moddecl"].append("    input      SPI_FLASH_MISO,")
+icosoc_v["15-moddecl"].append("    output SPI_FLASH_CS,")
+icosoc_v["15-moddecl"].append("    output SPI_FLASH_SCLK,")
+icosoc_v["15-moddecl"].append("    output SPI_FLASH_MOSI,")
+icosoc_v["15-moddecl"].append("    input  SPI_FLASH_MISO,")
 icosoc_v["15-moddecl"].append("")
 
 iowires.add("SPI_FLASH_CS")
@@ -898,6 +974,7 @@ icosoc_ys["10-readvlog"].append("read_verilog icosoc.v")
 icosoc_ys["10-readvlog"].append("read_verilog %s/common/picorv32.v" % basedir)
 icosoc_ys["10-readvlog"].append("read_verilog %s/common/icosoc_crossclkfifo.v" % basedir)
 icosoc_ys["10-readvlog"].append("read_verilog %s/common/icosoc_debugger.v" % basedir)
+icosoc_ys["10-readvlog"].append("read_verilog %s/common/icosoc_flashmem.v" % basedir)
 icosoc_ys["10-readvlog"].append("read_verilog %s/common/icosoc_raspif.v" % basedir)
 icosoc_ys["50-synthesis"].append("synth_ice40 -top icosoc -blif icosoc.blif")
 
@@ -921,6 +998,7 @@ tbfiles.add("testbench.v")
 tbfiles.add("%s/common/picorv32.v" % basedir)
 tbfiles.add("%s/common/icosoc_crossclkfifo.v" % basedir)
 tbfiles.add("%s/common/icosoc_debugger.v" % basedir)
+tbfiles.add("%s/common/icosoc_flashmem.v" % basedir)
 tbfiles.add("%s/common/icosoc_raspif.v" % basedir)
 tbfiles.add("%s/common/sim_sram.v" % basedir)
 tbfiles.add("%s/common/sim_spiflash.v" % basedir)
@@ -929,10 +1007,10 @@ tbfiles |= modvlog
 icosoc_mk["60-simulation"].append("testbench: %s" % (" ".join(tbfiles)))
 icosoc_mk["60-simulation"].append("\tiverilog -D TESTBENCH -o testbench %s $(shell yosys-config --datdir/ice40/cells_sim.v)" % (" ".join(tbfiles)))
 
-icosoc_mk["60-simulation"].append("testbench_vcd: testbench firmware.hex")
+icosoc_mk["60-simulation"].append("testbench_vcd: testbench firmware.hex appimage.hex")
 icosoc_mk["60-simulation"].append("\tvvp -N testbench +vcd")
 
-icosoc_mk["60-simulation"].append("testbench_novcd: testbench firmware.hex")
+icosoc_mk["60-simulation"].append("testbench_novcd: testbench firmware.hex appimage.hex")
 icosoc_mk["60-simulation"].append("\tvvp -N testbench")
 
 icosoc_mk["70-firmware"].append("firmware.elf: %s/common/firmware.S %s/common/firmware.c %s/common/firmware.lds" % (basedir, basedir, basedir))
