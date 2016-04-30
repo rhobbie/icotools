@@ -126,6 +126,12 @@ static int hex2int(char ch)
 
 int main()
 {
+	// wait a bit for the SPI flash to become ready (skip in testbench)
+	if (((*(volatile uint32_t*)0x20000000) & 0x80000000) == 0) {
+		for (int i = 0; i < 100000; i++)
+			asm volatile ("");
+	}
+
 	// flash_power_up
 	// we simply send a power_up command to the serial flash once at bootup.
 	// the power_down command (0xb9) is never sent. so no other code needs to bother
@@ -166,7 +172,7 @@ int main()
 #endif
 
 	// detect verilog testbench
-	if ((*(volatile uint32_t*)0x20000000) & 0x80000000) {
+	if (((*(volatile uint32_t*)0x20000000) & 0x80000000) != 0) {
 		console_puts(".\nBootloader> " + 2);
 		console_puts("TESTBENCH\n");
 		return 0;
