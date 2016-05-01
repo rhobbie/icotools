@@ -1,9 +1,6 @@
 
 def generate_c_code(icosoc_h, icosoc_c, mod):
     code = """
-#include <stdint.h>
-#include <stdbool.h>
-
 static inline void icosoc_@name@_cs(uint32_t bitmask) {
     *(volatile uint32_t*)(0x20000004 + @addr@ * 0x10000) = bitmask;
 }

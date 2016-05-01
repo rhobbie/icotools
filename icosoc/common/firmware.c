@@ -3,15 +3,17 @@
 
 bool in_flash_mode = false;
 
-static void spi_flash_cs(bool enable)
+static void spiflash_begin()
 {
-	if (enable)
-		*(volatile uint32_t*)0x20000004 &= ~8;
-	else
-		*(volatile uint32_t*)0x20000004 |= 8;
+	*(volatile uint32_t*)0x20000004 &= ~8;
 }
 
-static uint8_t spi_flash_xfer(uint8_t value)
+static void spiflash_end()
+{
+	*(volatile uint32_t*)0x20000004 |= 8;
+}
+
+static uint8_t spiflash_xfer(uint8_t value)
 {
 	*(volatile uint32_t*)0x20000008 = value;
 	return *(volatile uint32_t*)0x20000008;
@@ -85,22 +87,22 @@ static int console_getc()
 	{
 		console_puts("FLASHBOOT ");
 		in_flash_mode = true;
-		spi_flash_cs(false);
+		spiflash_end();
 
 		// read data at 256 kB offset
-		spi_flash_cs(true);
-		spi_flash_xfer(0x03);
-		spi_flash_xfer(4);
-		spi_flash_xfer(0);
-		spi_flash_xfer(0);
+		spiflash_begin();
+		spiflash_xfer(0x03);
+		spiflash_xfer(4);
+		spiflash_xfer(0);
+		spiflash_xfer(0);
 	}
 
-	int c = spi_flash_xfer(0);
+	int c = spiflash_xfer(0);
 
 	if (c == '*')
 	{
 		// end of read
-		spi_flash_cs(false);
+		spiflash_end();
 
 		return 0;
 	}
@@ -136,33 +138,33 @@ int main()
 	// we simply send a power_up command to the serial flash once at bootup.
 	// the power_down command (0xb9) is never sent. so no other code needs to bother
 	// about power_up/power_down. Most flash chips ignore those commands anyways..
-	spi_flash_cs(true);
-	spi_flash_xfer(0xab);
-	spi_flash_cs(false);
+	spiflash_begin();
+	spiflash_xfer(0xab);
+	spiflash_end();
 
 #if 0
 	console_puts("Flash ID:");
-	spi_flash_cs(true);
-	spi_flash_xfer(0x9f);
+	spiflash_begin();
+	spiflash_xfer(0x9f);
 	for (int i = 0; i < 20; i++) {
 		console_putc(' ');
-		console_puth8(spi_flash_xfer(i));
+		console_puth8(spiflash_xfer(i));
 	}
-	spi_flash_cs(false);
+	spiflash_end();
 	console_putc('\n');
 
 	console_puts("Flash Data (SPI): ");
-	spi_flash_cs(true);
-	spi_flash_xfer(0x03);
-	spi_flash_xfer(0x00);
-	spi_flash_xfer(0x00);
-	spi_flash_xfer(0x00);
+	spiflash_begin();
+	spiflash_xfer(0x03);
+	spiflash_xfer(0x00);
+	spiflash_xfer(0x00);
+	spiflash_xfer(0x00);
 	while (1) {
-		char c = spi_flash_xfer(0x00);
+		char c = spiflash_xfer(0x00);
 		if (c == 0) break;
 		console_putc(c);
 	}
-	spi_flash_cs(false);
+	spiflash_end();
 	console_putc('\n');
 
 	console_puts("Flash Data (MEM): ");

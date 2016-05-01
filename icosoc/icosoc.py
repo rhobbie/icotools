@@ -180,6 +180,7 @@ icosoc_h.append("""
 #define ICOSOC_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #define ICOSOC_CLOCK_FREQ_HZ %d
 
@@ -199,6 +200,37 @@ static inline uint32_t icosoc_timer(uint32_t ticks) {
 
 static inline void icosoc_sbreak() {
     asm volatile ("sbreak" : : : "memory");
+}
+
+static inline void icosoc_spiflash_begin()
+{
+    *(volatile uint32_t *)0x20000004 &= ~8;
+}
+
+static inline void icosoc_spiflash_end()
+{
+    *(volatile uint32_t *)0x20000004 |= 8;
+}
+
+static inline uint8_t icosoc_spiflash_xfer(uint8_t value)
+{
+    *(volatile uint32_t *)0x20000008 = value;
+    return *(volatile uint32_t *)0x20000008;
+}
+
+static inline void icosoc_spiflash_read(void *buf, int offset, int length)
+{
+    icosoc_spiflash_begin();
+
+    icosoc_spiflash_xfer(0x03);
+    icosoc_spiflash_xfer(offset >> 16);
+    icosoc_spiflash_xfer(offset >> 8);
+    icosoc_spiflash_xfer(offset);
+
+    while (length--)
+        *(uint8_t*)(buf++) = icosoc_spiflash_xfer(0);
+
+    icosoc_spiflash_end();
 }
 """ % clock_freq_hz);
 
