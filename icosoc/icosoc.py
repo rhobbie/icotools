@@ -34,12 +34,33 @@ enable_compressed_isa = False
 enable_muldiv_isa = False
 enable_flashmem = False
 
-pmod_locs = [
-    "D8 C7 C6 B3 A1 A2 B1 B2".split(),
-    "A9 B9 A10 B10 A11 B11 A16 A15".split(),
-    "T8 T7 T6 T5 T3 T2 T1 R2".split(),
-    "R14 T14 T13 T11 T10 T9 T16 T15".split()
-]
+board = ""
+pmod_locs = [ ]
+
+def setboard(boardname):
+    global pmod_locs
+    global board
+
+    board = boardname
+
+    if boardname == "icoboard_beta":
+        pmod_locs = [
+            "D8 C7 C6 B3 A1 A2 B1 B2".split(),
+            "A9 B9 A10 B10 A11 B11 A16 A15".split(),
+            "T8 T7 T6 T5 T3 T2 T1 R2".split(),
+            "R14 T14 T13 T11 T10 T9 T16 T15".split()
+        ]
+
+    elif boardname == "icoboard_gamma":
+        pmod_locs = [
+            "B7 B6 B3 B5 A5 A2 C3 B4".split(),
+            "B8 A9 A10 A11 D8 B9 B10 B11".split(),
+            "N9 P9 M8 N7 L9 G5 L7 N6".split(),
+            "R14 T13 T10 T9 T15 T14 T11 R10".split(),
+        ]
+
+    else:
+        assert False
 
 def make_pins(pname):
     ploc = None
@@ -68,6 +89,8 @@ def make_pins(pname):
     icosoc_pcf["12-iopins"].append("set_io %s %s" % (pname, ploc))
     return [ pname ]
 
+setboard("icoboard_beta")
+
 def parse_cfg(f):
     global enable_compressed_isa
     global enable_muldiv_isa
@@ -79,7 +102,13 @@ def parse_cfg(f):
     for line in f:
         line = line.split()
 
-        if len(line) == 0 or line[0] == "#":
+        if len(line) == 0 or line[0].startswith("#"):
+            continue
+
+        if line[0] == "board":
+            assert len(line) == 2
+            assert current_mod_name is None
+            setboard(line[1])
             continue
 
         if line[0] == "compressed_isa":
@@ -357,7 +386,7 @@ icosoc_v["30-raspif"].append("""
         .RASPI_16(RASPI_16),
         .RASPI_19(RASPI_19),
         .RASPI_21(RASPI_21),
-        .RASPI_24(RASPI_24),
+        .RASPI_26(RASPI_26),
         .RASPI_35(RASPI_35),
         .RASPI_36(RASPI_36),
         .RASPI_38(RASPI_38),
@@ -816,13 +845,13 @@ iowires.add("SPI_FLASH_MOSI")
 iowires.add("SPI_FLASH_MISO")
 
 icosoc_v["15-moddecl"].append("    // RasPi Interface: 9 Data Lines (cmds have MSB set)")
-icosoc_v["15-moddecl"].append("    inout RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_24, RASPI_35, RASPI_36,")
+icosoc_v["15-moddecl"].append("    inout RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_26, RASPI_35, RASPI_36,")
 icosoc_v["15-moddecl"].append("")
 icosoc_v["15-moddecl"].append("    // RasPi Interface: Control Lines")
 icosoc_v["15-moddecl"].append("    input RASPI_38, RASPI_40,")
 icosoc_v["15-moddecl"].append("")
 
-iowires |= set("RASPI_11 RASPI_12 RASPI_15 RASPI_16 RASPI_19 RASPI_21 RASPI_24 RASPI_35 RASPI_36 RASPI_38 RASPI_40".split())
+iowires |= set("RASPI_11 RASPI_12 RASPI_15 RASPI_16 RASPI_19 RASPI_21 RASPI_26 RASPI_35 RASPI_36 RASPI_38 RASPI_40".split())
 
 icosoc_v["15-moddecl"].append("    // SRAM Interface")
 icosoc_v["15-moddecl"].append("    output SRAM_A0, SRAM_A1, SRAM_A2, SRAM_A3, SRAM_A4, SRAM_A5, SRAM_A6, SRAM_A7,")
@@ -851,14 +880,17 @@ set_io SPI_FLASH_CS   R12
 set_io SPI_FLASH_SCLK R11
 set_io SPI_FLASH_MOSI P12
 set_io SPI_FLASH_MISO P11
+""")
 
+if board == "icoboard_beta":
+    icosoc_pcf["10-std"].append("""
 set_io RASPI_11 A5
 set_io RASPI_12 F9
 set_io RASPI_15 E9
 set_io RASPI_16 E10
 set_io RASPI_19 A6
 set_io RASPI_21 A7
-set_io RASPI_24 H6
+set_io RASPI_26 H6
 set_io RASPI_35 D10
 set_io RASPI_36 D9
 set_io RASPI_38 C9
@@ -904,6 +936,62 @@ set_io SRAM_OE  M5
 set_io SRAM_LB  N6
 set_io SRAM_UB  M6
 """)
+elif board == "icoboard_gamma":
+    icosoc_pcf["10-std"].append("""
+set_io RASPI_11 D5
+set_io RASPI_12 D6
+set_io RASPI_15 C6
+set_io RASPI_16 C7
+set_io RASPI_19 A6
+set_io RASPI_21 A7
+set_io RASPI_26 D4
+set_io RASPI_35 D7
+set_io RASPI_36 D9
+set_io RASPI_38 C9
+set_io RASPI_40 C10
+
+set_io SRAM_A0  N2
+set_io SRAM_A1  K5
+set_io SRAM_A2  J5
+set_io SRAM_A3  M5
+set_io SRAM_A4  P4
+set_io SRAM_A5  N5
+set_io SRAM_A6  P5
+set_io SRAM_A7  P7
+set_io SRAM_A8  M6
+set_io SRAM_A9  P6
+set_io SRAM_A10 T8
+set_io SRAM_A11 T1
+set_io SRAM_A12 P2
+set_io SRAM_A13 R1
+set_io SRAM_A14 N3
+set_io SRAM_A15 P1
+
+set_io SRAM_D0  T2
+set_io SRAM_D1  R3
+set_io SRAM_D2  T3
+set_io SRAM_D3  R4
+set_io SRAM_D4  R5
+set_io SRAM_D5  T5
+set_io SRAM_D6  R6
+set_io SRAM_D7  T6
+set_io SRAM_D8  N4
+set_io SRAM_D9  M4
+set_io SRAM_D10 L6
+set_io SRAM_D11 M3
+set_io SRAM_D12 L4
+set_io SRAM_D13 L3
+set_io SRAM_D14 K4
+set_io SRAM_D15 K3
+
+set_io SRAM_CE  M7
+set_io SRAM_WE  T7
+set_io SRAM_OE  L5
+set_io SRAM_LB  J4
+set_io SRAM_UB  J3
+""")
+else:
+    assert False
 
 icosoc_mk["10-top"].append("")
 icosoc_mk["10-top"].append("ifeq ($(shell which icoprog),)")
@@ -1103,8 +1191,8 @@ testbench["90-footer"].append("""
     reg raspi_clk = 0;
     reg raspi_dir = 0;
 
-    assign {RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_24, RASPI_35, RASPI_36} = raspi_dout;
-    assign raspi_din = {RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_24, RASPI_35, RASPI_36};
+    assign {RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_26, RASPI_35, RASPI_36} = raspi_dout;
+    assign raspi_din = {RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_26, RASPI_35, RASPI_36};
     assign RASPI_40 = raspi_clk, RASPI_38 = raspi_dir;
 
     task raspi_send_word(input [8:0] data);

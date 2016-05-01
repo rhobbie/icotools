@@ -19,7 +19,7 @@ module icosoc_raspif #(
 	output [NUM_TRIGGERS-1:0] trigger,
 
 	// RasPi Interface: 9 Data Lines (cmds have MSB set)
-	inout RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_24, RASPI_35, RASPI_36,
+	inout RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_26, RASPI_35, RASPI_36,
 
 	// RasPi Interface: Control Lines
 	input RASPI_38, RASPI_40
@@ -42,7 +42,7 @@ module icosoc_raspif #(
 		.PIN_TYPE(6'b 1010_01),
 		.PULLUP(1'b 0)
 	) raspi_io [8:0] (
-		.PACKAGE_PIN({RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_24, RASPI_35, RASPI_36}),
+		.PACKAGE_PIN({RASPI_11, RASPI_12, RASPI_15, RASPI_16, RASPI_19, RASPI_21, RASPI_26, RASPI_35, RASPI_36}),
 		.OUTPUT_ENABLE(!raspi_dir),
 		.D_OUT_0(raspi_dout),
 		.D_IN_0(raspi_din)
