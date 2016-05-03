@@ -137,7 +137,7 @@ int main()
 	// flash_power_up
 	// we simply send a power_up command to the serial flash once at bootup.
 	// the power_down command (0xb9) is never sent. so no other code needs to bother
-	// about power_up/power_down. Most flash chips ignore those commands anyways..
+	// about power_up/power_down. Many flash chips ignore those commands anyways..
 	spiflash_begin();
 	spiflash_xfer(0xab);
 	spiflash_end();
@@ -161,28 +161,28 @@ int main()
 	spiflash_xfer(0x00);
 	while (1) {
 		char c = spiflash_xfer(0x00);
-		if (c == 0) break;
+		if (c < 32 || c >= 127) break;
 		console_putc(c);
 	}
 	spiflash_end();
 	console_putc('\n');
 
 	console_puts("Flash Data (MEM): ");
-	for (char *p = (void*)0x40000000; *p; p++)
+	for (char *p = (void*)0x40000000; *p >= 32 && *p < 127; p++)
 		console_putc(*p);
 	console_putc('\n');
 #endif
 
 	// detect verilog testbench
 	if (((*(volatile uint32_t*)0x20000000) & 0x80000000) != 0) {
-		console_puts(".\nBootloader> " + 2);
+		console_puts("Bootloader> ");
 		console_puts("TESTBENCH\n");
 		return 0;
 	}
 
 	setled(1); // LEDs ..O
 
-	console_puts(".\nBootloader> " + 2);
+	console_puts("Bootloader> ");
 	uint8_t *memcursor = (uint8_t*)(64 * 1024);
 	int bytecount = 0;
 
@@ -249,7 +249,8 @@ int main()
 		setled(6); // LEDs OO.
 
 		console_putc(ch);
-		console_puts(".\nBootloader> " + 1);
+		console_putc('\n');
+		console_puts("Bootloader> ");
 	}
 
 	setled(0); // LEDs ...
