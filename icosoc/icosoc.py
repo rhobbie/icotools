@@ -35,6 +35,7 @@ enable_muldiv_isa = False
 enable_flashmem = False
 
 board = ""
+used_board = False
 pmod_locs = [ ]
 
 def setboard(boardname):
@@ -63,6 +64,9 @@ def setboard(boardname):
         assert False
 
 def make_pins(pname):
+    global used_board
+    used_board = True
+
     ploc = None
 
     m = re.match(r"^pmod(\d+)_(\d+)$", pname)
@@ -108,6 +112,7 @@ def parse_cfg(f):
         if line[0] == "board":
             assert len(line) == 2
             assert current_mod_name is None
+            assert not used_board
             setboard(line[1])
             continue
 
