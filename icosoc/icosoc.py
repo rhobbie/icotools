@@ -54,10 +54,10 @@ def setboard(boardname):
 
     elif boardname == "icoboard_gamma":
         pmod_locs = [
-            "B7 B6 B3 B5 A5 A2 C3 B4".split(),
-            "B8 A9 A10 A11 D8 B9 B10 B11".split(),
-            "N9 P9 M8 N7 L9 G5 L7 N6".split(),
-            "R14 T13 T10 T9 T15 T14 T11 R10".split(),
+            "A5 A2 C3 B4 B7 B6 B3 B5".split(),
+            "D8 B9 B10 B11 B8 A9 A10 A11".split(),
+            "L9 G5 L7 N6 N9 P9 M8 N7".split(),
+            "T9 T15 T14 T11 R10 R14 T13 T10".split(),
         ]
 
     else:
