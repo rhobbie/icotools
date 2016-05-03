@@ -1106,16 +1106,12 @@ icosoc_ys["50-synthesis"].append("synth_ice40 -top icosoc -blif icosoc.blif")
 icosoc_mk["50-synthesis"].append("icosoc.blif: icosoc.v icosoc.ys firmware.hex")
 icosoc_mk["50-synthesis"].append("\tyosys -l icosoc.log -v3 icosoc.ys")
 
-icosoc_mk["50-synthesis"].append("icosoc.asc: icosoc.blif icosoc.pcf")
+icosoc_mk["50-synthesis"].append("icosoc.bin: icosoc.blif icosoc.pcf")
 icosoc_mk["50-synthesis"].append("\tset -x; for seed in 1234 2345 4567 5678 6789; do \\")
-icosoc_mk["50-synthesis"].append("\tarachne-pnr -s $$seed -d 8k -p icosoc.pcf -o icosoc.asc icosoc.blif && exit 0; \\")
+icosoc_mk["50-synthesis"].append("\t\tarachne-pnr -s $$seed -d 8k -p icosoc.pcf -o icosoc.asc icosoc.blif && \\")
+icosoc_mk["50-synthesis"].append("\t\ticetime -c 16 -d hx8k -tr icosoc.rpt icosoc.asc && exit 0; \\")
 icosoc_mk["50-synthesis"].append("\tdone; false")
-
-icosoc_mk["50-synthesis"].append("icosoc.bin: icosoc.asc")
 icosoc_mk["50-synthesis"].append("\ticepack icosoc.asc icosoc.bin")
-
-icosoc_mk["50-synthesis"].append("icosoc.rpt: icosoc.asc")
-icosoc_mk["50-synthesis"].append("\ticetime -d hx8k -tr icosoc.rpt icosoc.asc")
 
 tbfiles = set()
 tbfiles.add("icosoc.v")

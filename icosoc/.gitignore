@@ -13,6 +13,7 @@
 /examples/*/icosoc.h
 /examples/*/icosoc.mk
 /examples/*/icosoc.pcf
+/examples/*/icosoc.rpt
 /examples/*/icosoc.v
 /examples/*/testbench
 /examples/*/testbench.v
