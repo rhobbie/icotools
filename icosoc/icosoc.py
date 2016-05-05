@@ -1031,7 +1031,7 @@ else:
     assert False
 
 icosoc_mk["10-top"].append("")
-icosoc_mk["10-top"].append("ifeq ($(shell which icoprog),)")
+icosoc_mk["10-top"].append("ifeq ($(shell type -p icoprog),)")
 icosoc_mk["10-top"].append("SSH_RASPI := ssh pi@raspi")
 icosoc_mk["10-top"].append("else")
 icosoc_mk["10-top"].append("SSH_RASPI := sh -c")
