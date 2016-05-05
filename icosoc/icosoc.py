@@ -1031,10 +1031,12 @@ else:
     assert False
 
 icosoc_mk["10-top"].append("")
-icosoc_mk["10-top"].append("ifeq ($(shell type -p icoprog),)")
-icosoc_mk["10-top"].append("SSH_RASPI := ssh pi@raspi")
+icosoc_mk["10-top"].append("RISCV_TOOLS_PREFIX ?= /opt/riscv32i/bin/riscv32-unknown-elf-")
+icosoc_mk["10-top"].append("")
+icosoc_mk["10-top"].append("ifeq ($(shell bash -c 'type -p icoprog'),)")
+icosoc_mk["10-top"].append("SSH_RASPI ?= ssh pi@raspi")
 icosoc_mk["10-top"].append("else")
-icosoc_mk["10-top"].append("SSH_RASPI := sh -c")
+icosoc_mk["10-top"].append("SSH_RASPI ?= sh -c")
 icosoc_mk["10-top"].append("endif")
 icosoc_mk["10-top"].append("")
 icosoc_mk["10-top"].append("help:")
@@ -1135,12 +1137,12 @@ icosoc_mk["60-simulation"].append("testbench_novcd: testbench firmware.hex appim
 icosoc_mk["60-simulation"].append("\tvvp -N testbench")
 
 icosoc_mk["70-firmware"].append("firmware.elf: %s/common/firmware.S %s/common/firmware.c %s/common/firmware.lds" % (basedir, basedir, basedir))
-icosoc_mk["70-firmware"].append("\triscv32-unknown-elf-gcc -Os -m32 -march=RV32IXcustom -ffreestanding -nostdlib -Wall -o firmware.elf %s/common/firmware.S %s/common/firmware.c \\" % (basedir, basedir))
+icosoc_mk["70-firmware"].append("\t$(RISCV_TOOLS_PREFIX)gcc -Os -m32 -march=RV32IXcustom -ffreestanding -nostdlib -Wall -o firmware.elf %s/common/firmware.S %s/common/firmware.c \\" % (basedir, basedir))
 icosoc_mk["70-firmware"].append("\t\t\t--std=gnu99 -Wl,-Bstatic,-T,%s/common/firmware.lds,-Map,firmware.map,--strip-debug -lgcc" % basedir)
 icosoc_mk["70-firmware"].append("\tchmod -x firmware.elf")
 
 icosoc_mk["70-firmware"].append("firmware.bin: firmware.elf")
-icosoc_mk["70-firmware"].append("\triscv32-unknown-elf-objcopy -O binary firmware.elf firmware.bin")
+icosoc_mk["70-firmware"].append("\t$(RISCV_TOOLS_PREFIX)objcopy -O binary firmware.elf firmware.bin")
 icosoc_mk["70-firmware"].append("\tchmod -x firmware.bin")
 
 icosoc_mk["70-firmware"].append("firmware.hex: %s/common/makehex.py firmware.bin" % basedir)
