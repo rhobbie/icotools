@@ -1,8 +1,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-bool in_flash_mode = false;
-
 static void spiflash_begin()
 {
 	*(volatile uint32_t*)0x20000004 &= ~8;
@@ -26,17 +24,11 @@ static inline void setled(int v)
 
 static void console_putc(int c)
 {
-	if (in_flash_mode)
-		return;
-
 	*(volatile uint32_t*)0x30000000 = c;
 }
 
 static void console_puth32(uint32_t v)
 {
-	if (in_flash_mode)
-		return;
-
 	for (int i = 0; i < 8; i++) {
 		int d = v >> 28;
 		console_putc(d < 10 ? '0' + d : 'a' + d - 10);
@@ -48,9 +40,6 @@ static void console_puth8(uint8_t v) __attribute__((unused));
 
 static void console_puth8(uint8_t v)
 {
-	if (in_flash_mode)
-		return;
-
 	v &= 0xff;
 	int d = v >> 4;
 	v &= 0x0f;
@@ -61,53 +50,25 @@ static void console_puth8(uint8_t v)
 
 static void console_puts(const char *s)
 {
-	if (in_flash_mode)
-		return;
-
 	while (*s)
 		*(volatile uint32_t*)0x30000000 = *(s++);
 }
 
+static int console_getc_timeout()
+{
+	for (int i = 0; i < 1000000; i++) {
+		int c = *(volatile uint32_t*)0x30000000;
+		if (c >= 0) return c;
+	}
+	return 127;
+}
+
 static int console_getc()
 {
-	static int load_timeout = 0;
-
-	while (load_timeout < 1000000)
-	{
+	while (1) {
 		int c = *(volatile uint32_t*)0x30000000;
-		load_timeout++;
-
-		if (c >= 0) {
-			load_timeout = 0;
-			return c;
-		}
+		if (c >= 0) return c;
 	}
-
-	if (!in_flash_mode)
-	{
-		console_puts("FLASHBOOT ");
-		in_flash_mode = true;
-		spiflash_end();
-
-		// read data at 256 kB offset
-		spiflash_begin();
-		spiflash_xfer(0x03);
-		spiflash_xfer(4);
-		spiflash_xfer(0);
-		spiflash_xfer(0);
-	}
-
-	int c = spiflash_xfer(0);
-
-	if (c == '*')
-	{
-		// end of read
-		spiflash_end();
-
-		return 0;
-	}
-
-	return c;
 }
 
 static bool ishex(char ch)
@@ -128,6 +89,9 @@ static int hex2int(char ch)
 
 int main()
 {
+	// make sure there is no dangling SPI xfer
+	spiflash_end();
+
 	// wait a bit for the SPI flash to become ready (skip in testbench)
 	if (((*(volatile uint32_t*)0x20000000) & 0x80000000) == 0) {
 		for (int i = 0; i < 100000; i++)
@@ -180,19 +144,35 @@ int main()
 		return 0;
 	}
 
-	setled(1); // LEDs ..O
-
 	console_puts("Bootloader> ");
 	uint8_t *memcursor = (uint8_t*)(64 * 1024);
 	int bytecount = 0;
 
 	while (1)
 	{
-		setled(2); // LEDs .O.
+		char ch = console_getc_timeout();
 
-		char ch = console_getc();
+		if (ch == 127)
+		{
+			console_puts("FLASHBOOT ");
 
-		setled(3); // LEDs .OO
+			// read data at 512 kB offset
+			spiflash_begin();
+			spiflash_xfer(0x03);
+			spiflash_xfer(8);
+			spiflash_xfer(0);
+			spiflash_xfer(0);
+
+			uint8_t *p = (void*)(64*1024);
+			for (int i = 0; i < 128*1024; i++) {
+				if (i % 2048 == 0) console_putc('.');
+				p[i] = spiflash_xfer(0);
+			}
+
+			spiflash_end();
+			console_puts(" RUN\n");
+			break;
+		}
 
 		if (ch == 0 || ch == '@')
 		{
@@ -205,7 +185,6 @@ int main()
 			}
 
 			if (ch == 0) {
-				in_flash_mode = false;
 				console_puts("RUN\n");
 				break;
 			}
@@ -221,8 +200,6 @@ int main()
 			bytecount = 0;
 			continue;
 		}
-
-		setled(4); // LEDs O..
 
 		if (ishex(ch))
 		{
@@ -240,20 +217,15 @@ int main()
 			goto prompt;
 		}
 
-		setled(5); // LEDs O.O
-
 		if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n')
 			continue;
 
 	prompt:
-		setled(6); // LEDs OO.
-
 		console_putc(ch);
 		console_putc('\n');
 		console_puts("Bootloader> ");
 	}
 
-	setled(0); // LEDs ...
 	return 0;
 }
 

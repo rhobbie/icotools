@@ -202,5 +202,9 @@ start:
 	addi sp, sp, %lo((64+128)*1024)
 
 	/* jump to application */
+#ifdef FLASHPMEM
+	j 0x100000
+#else
 	j 0x10000
+#endif
 

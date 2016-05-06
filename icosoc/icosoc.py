@@ -33,6 +33,7 @@ modvlog = set()
 enable_compressed_isa = False
 enable_muldiv_isa = False
 enable_flashmem = False
+enable_flashpmem = False
 
 board = ""
 used_board = False
@@ -99,6 +100,7 @@ def parse_cfg(f):
     global enable_compressed_isa
     global enable_muldiv_isa
     global enable_flashmem
+    global enable_flashpmem
 
     current_mod_name = None
     cm = None
@@ -132,6 +134,13 @@ def parse_cfg(f):
             assert len(line) == 1
             assert current_mod_name is None
             enable_flashmem = True
+            continue
+
+        if line[0] == "flashpmem":
+            assert len(line) == 1
+            assert current_mod_name is None
+            enable_flashmem = True
+            enable_flashpmem = True
             continue
 
         if line[0] == "mod":
@@ -636,13 +645,18 @@ icosoc_v["60-debug"].append("""
 """)
 
 if enable_flashmem:
+    flashmem_condition = "((mem_addr & 32'hC000_0000) == 32'h4000_0000)"
+    if enable_flashpmem:
+        flashmem_condition += " || (!mem_addr[31:28] && mem_addr[27:20])"
+
     icosoc_v["68-flashmem"].append("""
     // -------------------------------
     // Flashmem and SPI Flash Interface
 
     wire [23:0] flashmem_addr = mem_addr;
     wire [31:0] flashmem_rdata;
-    wire flashmem_valid = mem_valid && !mem_ready && (mem_addr & 32'hC000_0000) == 32'h4000_0000;
+    wire flashmem_cond = <flashmem_condition>;
+    wire flashmem_valid = mem_valid && !mem_ready && flashmem_cond;
     wire flashmem_ready;
 
     wire flashmem_cs;
@@ -675,7 +689,8 @@ if enable_flashmem:
         .spi_mosi(flashmem_mosi),
         .spi_miso(flashmem_miso)
     );
-""")
+""".replace("<flashmem_condition>", flashmem_condition))
+
 else:
     icosoc_v["68-flashmem"].append("""
     // -------------------------------
@@ -693,6 +708,8 @@ else:
     assign SPI_FLASH_SCLK = spiflash_sclk;
     assign SPI_FLASH_MOSI = spiflash_mosi;
     assign spiflash_miso = SPI_FLASH_MISO;
+
+    wire flashmem_cond = 0;
 """)
 
 icosoc_v["70-bus"].append("""
@@ -748,7 +765,7 @@ icosoc_v["72-bus"].append("""
                     end
                     mem_ready <= 1;
                 end
-                (mem_addr & 32'hF000_0000) == 32'h0000_0000 && (mem_addr >> 2) >= BOOT_MEM_SIZE: begin
+                (mem_addr & 32'hF000_0000) == 32'h0000_0000 && (mem_addr >> 2) >= BOOT_MEM_SIZE && !flashmem_cond: begin
                     if (mem_wstrb) begin
                         (* parallel_case, full_case *)
                         case (sram_state)
@@ -849,7 +866,7 @@ icosoc_v["76-bus"].append("""
 
 if enable_flashmem:
     icosoc_v["77-bus"].append("""
-                (mem_addr & 32'hC000_0000) == 32'h4000_0000: begin
+                flashmem_cond: begin
                     mem_rdata <= flashmem_rdata;
                     mem_ready <= flashmem_ready;
                 end
@@ -1031,7 +1048,15 @@ else:
     assert False
 
 icosoc_mk["10-top"].append("")
-icosoc_mk["10-top"].append("RISCV_TOOLS_PREFIX ?= /opt/riscv32i/bin/riscv32-unknown-elf-")
+
+icosoc_mk["10-top"].append("RISCV_TOOLS_PREFIX ?= /opt/riscv32i%s%s/bin/riscv32-unknown-elf-" %
+        ("m" if enable_muldiv_isa else "", "c" if enable_compressed_isa else ""))
+
+if enable_flashpmem:
+    icosoc_mk["10-top"].append("LDSCRIPT ?= %s/common/riscv_flash.ld" % basedir)
+else:
+    icosoc_mk["10-top"].append("LDSCRIPT ?= %s/common/riscv_orig.ld" % basedir)
+
 icosoc_mk["10-top"].append("")
 icosoc_mk["10-top"].append("ifeq ($(shell bash -c 'type -p icoprog'),)")
 icosoc_mk["10-top"].append("SSH_RASPI ?= ssh pi@raspi")
@@ -1068,32 +1093,45 @@ icosoc_mk["10-top"].append("\t@echo \"   make debug\"")
 icosoc_mk["10-top"].append("\t@echo \"\"")
 icosoc_mk["10-top"].append("")
 icosoc_mk["10-top"].append("prog_sram: icosoc.bin")
+icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'killall -9 icoprog || true'")
 icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'icoprog -p' < icosoc.bin")
 icosoc_mk["10-top"].append("")
-icosoc_mk["10-top"].append("prog_flash: icosoc.bin")
+icosoc_mk["10-top"].append("prog_flash: icosoc.bin appimage.hex")
+icosoc_mk["10-top"].append("\tpython3 %s/common/flashbin.py" % basedir)
+icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'killall -9 icoprog || true'")
 icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'icoprog -f' < icosoc.bin")
+icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'icoprog -O8 -f' < appimage_lo.bin")
+icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'icoprog -O16 -f' < appimage_hi.bin")
 icosoc_mk["10-top"].append("")
 icosoc_mk["10-top"].append("prog_firmware: firmware.bin")
+icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'killall -9 icoprog || true'")
 icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'icoprog -w1' < firmware.bin")
 icosoc_mk["10-top"].append("")
 icosoc_mk["10-top"].append("reset_halt:")
+icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'killall -9 icoprog || true'")
 icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'icoprog -R'")
 icosoc_mk["10-top"].append("")
 icosoc_mk["10-top"].append("reset_boot:")
+icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'killall -9 icoprog || true'")
 icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'icoprog -b'")
+icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'icoprog -Zr2'")
 icosoc_mk["10-top"].append("")
 icosoc_mk["10-top"].append("run: icosoc.bin appimage.hex")
+icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'killall -9 icoprog || true'")
 icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'icoprog -p' < icosoc.bin")
 icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'icoprog -zZc2' < appimage.hex")
 icosoc_mk["10-top"].append("")
 icosoc_mk["10-top"].append("softrun: appimage.hex")
+icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'killall -9 icoprog || true'")
 icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'icoprog -p' < icosoc.bin")
 icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'icoprog -zZc2' < appimage.hex")
 icosoc_mk["10-top"].append("")
 icosoc_mk["10-top"].append("console:")
+icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'killall -9 icoprog || true'")
 icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'icoprog -c2'")
 icosoc_mk["10-top"].append("")
 icosoc_mk["10-top"].append("debug:")
+icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'killall -9 icoprog || true'")
 icosoc_mk["10-top"].append("\tsedexpr=\"$$( grep '//.*debug_.*->' icosoc.v | sed 's,.*\(debug_\),s/\\1,; s, *-> *, /,; s, *$$, /;,;'; )\"; \\")
 icosoc_mk["10-top"].append("\t\t\t$(SSH_RASPI) 'icoprog -V31' | sed -e \"$$sedexpr\" > debug.vcd")
 
@@ -1137,7 +1175,8 @@ icosoc_mk["60-simulation"].append("testbench_novcd: testbench firmware.hex appim
 icosoc_mk["60-simulation"].append("\tvvp -N testbench")
 
 icosoc_mk["70-firmware"].append("firmware.elf: %s/common/firmware.S %s/common/firmware.c %s/common/firmware.lds" % (basedir, basedir, basedir))
-icosoc_mk["70-firmware"].append("\t$(RISCV_TOOLS_PREFIX)gcc -Os -m32 -march=RV32IXcustom -ffreestanding -nostdlib -Wall -o firmware.elf %s/common/firmware.S %s/common/firmware.c \\" % (basedir, basedir))
+icosoc_mk["70-firmware"].append("\t$(RISCV_TOOLS_PREFIX)gcc -Os -m32 %s-march=RV32IXcustom -ffreestanding -nostdlib -Wall -o firmware.elf %s/common/firmware.S %s/common/firmware.c \\" %
+        ("-DFLASHPMEM " if enable_flashpmem else "", basedir, basedir))
 icosoc_mk["70-firmware"].append("\t\t\t--std=gnu99 -Wl,-Bstatic,-T,%s/common/firmware.lds,-Map,firmware.map,--strip-debug -lgcc" % basedir)
 icosoc_mk["70-firmware"].append("\tchmod -x firmware.elf")
 
@@ -1160,9 +1199,10 @@ icosoc_mk["90-extradeps"].append("icosoc.blif: %s/mod_*/*" % basedir)
 
 filelist = [
     "firmware.bin firmware.elf firmware.hex firmware.map",
-    "icosoc.mk icosoc.ys icosoc.pcf icosoc.v icosoc.h icosoc.c",
+    "icosoc.mk icosoc.ys icosoc.pcf icosoc.v icosoc.h icosoc.c icosoc.ld",
     "icosoc.blif icosoc.asc icosoc.bin icosoc.log icosoc.rpt debug.vcd",
-    "testbench", "testbench.v", "testbench.vcd",
+    "testbench testbench.v testbench.vcd",
+    "appimage_lo.bin appimage_hi.bin",
 ]
 
 if opt.no_clean_target:
@@ -1262,7 +1302,11 @@ testbench["90-footer"].append("""
     reg [7:0] raspi_current_ep;
     reg [8:0] raspi_current_word;
 
+    event appimage_ready;
+
     initial begin
+        @(appimage_ready);
+
         if ($test$plusargs("vcd")) begin
             $dumpfile("testbench.vcd");
             $dumpvars(0, testbench);
@@ -1284,12 +1328,20 @@ testbench["90-footer"].append("""
         reg [7:0] appimage [0:16*1024*1024-1];
         integer i;
 
+        $display("-- Loading appimage --");
+
         $readmemh("appimage.hex", appimage);
 
         for (i = 0; i < 'h10000; i=i+1) begin
             sram.sram_memory[(i + 'h8000) % 'h10000][7:0] = appimage['h10000 + 2*i];
             sram.sram_memory[(i + 'h8000) % 'h10000][15:8] = appimage['h10000 + 2*i + 1];
         end
+
+        for (i = 1*1024*1024; i < 2*1024*1024; i=i+1) begin
+            spiflash.memory[i] = appimage[i];
+        end
+
+        -> appimage_ready;
     end
 endmodule
 """);

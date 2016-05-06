@@ -1,6 +1,8 @@
 /mod_*/__pycache__
 /examples/*/appimage.elf
 /examples/*/appimage.hex
+/examples/*/appimage_lo.bin
+/examples/*/appimage_hi.bin
 /examples/*/firmware.bin
 /examples/*/firmware.elf
 /examples/*/firmware.hex
