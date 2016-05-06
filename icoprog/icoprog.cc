@@ -571,13 +571,19 @@ void read_endpoint(int epnum, int trignum)
 {
 	link_sync(trignum);
 
+	bool pending_fflush = false;
+
 	for (int timeout = 0; timeout < 1000 || recv_zero; timeout++) {
 		int byte = recv_word();
 		if (current_recv_ep == epnum && byte < 0x100) {
 			if (recv_zero && byte == 0)
 				break;
 			putchar(byte);
+			pending_fflush = true;
 			timeout = 0;
+		} else if (pending_fflush) {
+			pending_fflush = false;
+			fflush(stdout);
 		}
 	}
 
