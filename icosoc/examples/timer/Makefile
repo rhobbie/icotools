@@ -1,4 +1,3 @@
-RISCV_TOOLS_PREFIX = /opt/riscv32i/bin/riscv32-unknown-elf-
 CC = $(RISCV_TOOLS_PREFIX)gcc
 CFLAGS = --std=gnu99 -Os -MD -Wall -march=RV32IXcustom
 OBJS = main.o icosoc.o
@@ -6,7 +5,7 @@ OBJS = main.o icosoc.o
 default: help
 
 appimage.elf: $(OBJS)
-	$(CC) -o appimage.elf $(OBJS)
+	$(CC) -T $(LDSCRIPT) -o appimage.elf $(OBJS)
 	chmod -x appimage.elf
 
 appimage.hex: appimage.elf

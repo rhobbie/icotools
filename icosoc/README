@@ -33,7 +33,7 @@ RISC-V toolchains installed on your system, as outlined below.
 
 
 Installing the IceStorm Flow
-----------------------------
+============================
 
 The IceStorm flow consists of the IceStorm Tools, Arachne-PNR, and Yosys.
 Follow the instructions on the IceStorm website to build the flow:
@@ -42,7 +42,7 @@ Follow the instructions on the IceStorm website to build the flow:
 
 
 Installing the RISC-V Toolchain
--------------------------------
+===============================
 
 Follow the instructions in the PicoRV32 documentation:
 https://github.com/cliffordwolf/picorv32#building-a-pure-rv32i-toolchain
@@ -56,4 +56,84 @@ of them simply run:
 	cd picorv32
 	make download-tools
 	make -j$(nproc) build-tools
+
+
+IcoSoC Configuration File Format
+================================
+
+See examples/ for some example SoCs. Each IcoSoC project has a Makefile
+that includes icosoc.mk, has a rule to create it using icosoc.py, and
+has a rule to build an appimage.hex file. It also must have an icosoc.cfg
+file that configures the SoC.
+
+Use examples/hello/Makefile and examples/hello/icosoc.cfg as a templates.
+
+The icosoc.cfg file has a "global section" that contains statements that
+configure the overall SoC, and "module sections" for each peripheral module.
+
+
+IcoSoC Global Config Section
+============================
+
+The following statements are supported in the global section:
+
+board <board_name>
+------------------
+
+Sets the board type. Currently supported values are "icoboard_beta"
+and "icoboard_gamma".
+
+compressed_isa
+--------------
+
+Enable support for the RISC-V Compressed ISA. This will result in smaller
+application images, but require more FPGA resources for the processor core.
+
+muldiv_isa
+----------
+
+Enable support for multiply/divide instructions. This will significantly
+increase the size of the processor core.
+
+flashmem
+--------
+
+Map SPI flash into processor memory. Byte 0 of the flash is at 0x40000000.
+
+flashpmem
+---------
+
+Use SPI flash as program memory. Executing code from the SPI flash is very
+slow! But it enables much larger programs to be used with the SoC. This
+will modify the boot loader and a different linker script will be used to
+link the program. Everything in the ELF section .text.sram will be placed
+in SRAM. Make sure that performance critical functions are placed in this
+ELF section.
+
+This implies the "flashmem" option. In addition to the mapping at 0x40000000
+this will map everything above 0x100000 (1MB) in the flash to 0x100000 in
+the processor address space.
+
+
+IcoSoC Module Sections
+======================
+
+A module section starts with "mod <mod_type> <mod_name>". See the mod_*
+directories in this directory for supported module types. The <mod_name>
+can be any identifier. For example consider the following module section:
+
+	mod gpio leds
+	  address 4
+	  connect IO pmod2 pmod1
+
+This will create a GPIO controller named "leds". The register file for
+that controller starts at 0x20040000 (0x20000000 + <addr> * 0x10000).
+
+The port IO of the peripheral is connected to the pins of the PMOD ports
+number 2 and 1. (The name "IO" is specific to the module type. The module
+type "gpio" only specifies a port "IO".)
+
+This will also create functions for accessing that peripheral module
+in icosoc.h and icosoc.c. The prefix "icosoc_<mod_name>_" is used for
+the function names.
 
