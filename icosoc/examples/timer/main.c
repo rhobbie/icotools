@@ -70,6 +70,14 @@ void irq_handler(uint32_t irq_mask, uint32_t *regs)
 		printf("STOP.\n");
 		icosoc_sbreak();
 	}
+
+	// other IRQs
+	if (irq_mask & ~7)
+	{
+		for (int i = 3; i < 32; i++)
+			if (irq_mask & (1 << i))
+				printf("IRQ %d\n", i);
+	}
 }
 
 int main()
@@ -80,24 +88,27 @@ int main()
 	// enable IRQs
 	icosoc_maskirq(0);
 
-	// start timer
+	// start timer (IRQ 0)
 	icosoc_timer(1000000);
 
+	// trigger IRQ 8 on falling edge on PMOD1_1
+	icosoc_demoirq_set_config(icosoc_demoirq_trigger_fe);
+
 #if 0
-	// trigger IRQ by calling sbreak
+	// trigger IRQ 1 by calling sbreak
 	icosoc_sbreak();
 #endif
 
 #if 0
-	// trigger IRQ by unaligned memory access
-	// (set to 1 by inline asm, so compiler can't see alignment)
+	// trigger IRQ 2 by unaligned memory access
+	// (pointer value set by inline asm, so compiler can't see alignment)
 	int *p;
 	asm volatile ("addi %0, zero, 1" : "=r" (p));
 	printf("%d\n", *p);
 #endif
 
 #if 0
-	// trigger IRQ by illegal instruction
+	// trigger IRQ 1 by illegal instruction
 	asm volatile (".word 0");
 #endif
 

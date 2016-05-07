@@ -150,6 +150,7 @@ def parse_cfg(f):
                 "name": current_mod_name,
                 "type": line[1],
                 "addr": None,
+                "irq": None,
                 "conns": defaultdict(list),
                 "params": dict()
             }
@@ -181,6 +182,13 @@ def parse_cfg(f):
             assert current_mod_name is not None
             assert cm["addr"] is None
             cm["addr"] = line[1]
+            continue
+
+        if line[0] == "interrupt":
+            assert len(line) == 2
+            assert current_mod_name is not None
+            assert cm["irq"] is None
+            cm["irq"] = line[1]
             continue
 
         print("Cfg error: %s" % line)
@@ -550,6 +558,8 @@ icosoc_v["40-cpu"].append("""
     // PicoRV32 Core
 
     wire cpu_trap;
+    wire [31:0] cpu_irq;
+
     wire mem_valid;
     wire mem_instr;
     wire [31:0] mem_addr;
@@ -577,7 +587,7 @@ icosoc_v["40-cpu"].append("""
         .mem_wdata (mem_wdata      ),
         .mem_wstrb (mem_wstrb      ),
         .mem_rdata (mem_rdata      ),
-        .irq       (32'b0          )
+        .irq       (cpu_irq        )
     );
 """
 .replace("<compisa>", ("1" if enable_compressed_isa else "0"))
@@ -588,6 +598,7 @@ icosoc_v["50-mods"].append("""
     // IcoSoC Modules
 """)
 
+irq_terms = list()
 txt = icosoc_v["50-mods"]
 for m in mods.values():
     if m["addr"] is not None:
@@ -597,6 +608,12 @@ for m in mods.values():
         txt.append("    reg [31:0] mod_%s_ctrl_wdat;" % m["name"])
         txt.append("    wire [31:0] mod_%s_ctrl_rdat;" % m["name"])
         txt.append("    wire mod_%s_ctrl_done;" % m["name"])
+        if m["irq"] is None:
+            txt.append("")
+
+    if m["irq"] is not None:
+        irq_terms.append("mod_%s_ctrl_irq << %s" % (m["name"], m["irq"]))
+        txt.append("    wire mod_%s_ctrl_irq;" % m["name"])
         txt.append("")
 
     txt.append("    icosoc_mod_%s #(" % m["type"])
@@ -613,6 +630,9 @@ for m in mods.values():
     if m["addr"] is not None:
         for n in "wr rd addr wdat rdat done".split():
             txt.append("        .ctrl_%s(mod_%s_ctrl_%s)," % (n, m["name"], n))
+
+    if m["irq"] is not None:
+        txt.append("        .ctrl_irq(mod_%s_ctrl_irq)," % m["name"])
 
     for cn, cd in m["conns"].items():
         txt.append("        .%s({%s})," % (cn, ",".join(cd)))
@@ -648,6 +668,13 @@ for m in mods.values():
         mod_loaded = importlib.import_module("mod_%s.mod_%s" % (m["type"], m["type"]))
         if hasattr(mod_loaded, "generate_c_code"):
             mod_loaded.generate_c_code(icosoc_h, icosoc_c, m)
+
+txt.append("");
+if len(irq_terms) > 0:
+    txt.append("assign cpu_irq = %s;" % " | ".join(["(" + t + ")" for t in irq_terms]))
+else:
+    txt.append("assign cpu_irq = 0;");
+
 
 icosoc_v["60-debug"].append("""
     // -------------------------------
