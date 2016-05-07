@@ -13,7 +13,7 @@ cmd.add_argument \
 opt = cmd.parse_args ()
 
 basedir = os.path.dirname(sys.argv[0])
-clock_freq_hz = 6000000
+clock_freq_hz = 20000000
 
 icosoc_mk = defaultdict(list)
 icosoc_ys = defaultdict(list)
@@ -216,6 +216,11 @@ static inline void icosoc_sbreak() {
     asm volatile ("sbreak" : : : "memory");
 }
 
+static inline void icosoc_leds(uint8_t value)
+{
+    *(volatile uint32_t *)0x20000000 = value;
+}
+
 static inline void icosoc_spiflash_begin()
 {
     *(volatile uint32_t *)0x20000004 &= ~8;
@@ -260,36 +265,103 @@ icosoc_v["20-clockgen"].append("""
     // -------------------------------
     // Clock Generator
 
-    wire clk, resetn;
-    reg clk90;
+    wire clk, clk90;
+    wire pll_locked;
 
-    `define POW2CLOCKDIV 1
+`ifdef TESTBENCH
+    reg r_clk = 0, r_clk90 = 0;
 
-    reg [`POW2CLOCKDIV:0] divided_clock = 'b0x;
-    always @* divided_clock[0] = CLK12MHZ;
+    always @(posedge CLKIN)
+        r_clk <= !r_clk;
 
-    genvar i;
-    generate for (i = 1; i <= `POW2CLOCKDIV; i = i+1) begin
-        always @(posedge divided_clock[i-1])
-            divided_clock[i] <= !divided_clock[i];
-    end endgenerate
+    always @(negedge CLKIN)
+        r_clk90 <= r_clk;
 
-    SB_GB clock_buffer (
-        .USER_SIGNAL_TO_GLOBAL_BUFFER(divided_clock[`POW2CLOCKDIV]),
-        .GLOBAL_BUFFER_OUTPUT(clk)
+    assign clk = r_clk, clk90 = r_clk90;
+    assign pll_locked = 1;
+`else
+    wire clk_100mhz, pll1_locked, pll2_locked;
+    assign pll_locked = pll1_locked && pll2_locked;
+""")
+if board == "icoboard_beta":
+    icosoc_v["20-clockgen"].append("""
+    SB_PLL40_PAD #(
+        .FEEDBACK_PATH("SIMPLE"),
+        .DELAY_ADJUSTMENT_MODE_FEEDBACK("FIXED"),
+        .DELAY_ADJUSTMENT_MODE_RELATIVE("FIXED"),
+        .PLLOUT_SELECT("GENCLK"),
+        .FDA_FEEDBACK(4'b1111),
+        .FDA_RELATIVE(4'b1111),
+        .DIVR(4'b0000),
+        .DIVF(7'b1000010),
+        .DIVQ(3'b011),
+        .FILTER_RANGE(3'b111)
+    ) pll1 (
+        .PACKAGEPIN     (CLKIN        ),
+        .PLLOUTCORE     (clk_100mhz   ),
+        .LOCK           (pll1_locked  ),
+        .BYPASS         (1'b0         ),
+        .RESETB         (1'b1         )
     );
+""")
+elif board == "icoboard_gamma":
+    icosoc_v["20-clockgen"].append("""
+    SB_PLL40_PAD #(
+        .FEEDBACK_PATH("SIMPLE"),
+        .DELAY_ADJUSTMENT_MODE_FEEDBACK("FIXED"),
+        .DELAY_ADJUSTMENT_MODE_RELATIVE("FIXED"),
+        .PLLOUT_SELECT("GENCLK"),
+        .FDA_FEEDBACK(4'b1111),
+        .FDA_RELATIVE(4'b1111),
+        .DIVR(4'b0000),
+        .DIVF(7'b0011111),
+        .DIVQ(3'b011),
+        .FILTER_RANGE(3'b111)
+    ) pll1 (
+        .PACKAGEPIN     (CLKIN        ),
+        .PLLOUTCORE     (clk_100mhz   ),
+        .LOCK           (pll1_locked  ),
+        .BYPASS         (1'b0         ),
+        .RESETB         (1'b1         )
+    );
+""")
+else:
+    assert False
 
-    always @(negedge divided_clock[`POW2CLOCKDIV-1])
-        clk90 <= clk;
+icosoc_v["20-clockgen"].append("""
+    SB_PLL40_2F_CORE #(
+        .FEEDBACK_PATH("PHASE_AND_DELAY"),
+        .DELAY_ADJUSTMENT_MODE_FEEDBACK("FIXED"),
+        .DELAY_ADJUSTMENT_MODE_RELATIVE("FIXED"),
+        .PLLOUT_SELECT_PORTA("SHIFTREG_0deg"),
+        .PLLOUT_SELECT_PORTB("SHIFTREG_90deg"),
+        .SHIFTREG_DIV_MODE(1'b0),
+        .FDA_FEEDBACK(4'b1111),
+        .FDA_RELATIVE(4'b1111),
+        .DIVR(4'b0100),
+        .DIVF(7'b0000000),
+        .DIVQ(3'b101),
+        .FILTER_RANGE(3'b111)
+    ) pll2 (
+        .REFERENCECLK   (clk_100mhz   ),
+        .PLLOUTGLOBALA  (clk          ),
+        .PLLOUTGLOBALB  (clk90        ),
+        .LOCK           (pll2_locked  ),
+        .BYPASS         (1'b0         ),
+        .RESETB         (1'b1         )
+    );
+`endif
 
     // -------------------------------
     // Reset Generator
 
     reg [7:0] resetn_counter = 0;
-    assign resetn = &resetn_counter;
+    wire resetn = &resetn_counter;
 
     always @(posedge clk) begin
-        if (!resetn)
+        if (!pll_locked)
+            resetn_counter <= 0;
+        else if (!resetn)
             resetn_counter <= resetn_counter + 1;
     end
 """)
@@ -879,11 +951,11 @@ icosoc_v["78-bus"].append("""
 """)
 
 icosoc_v["10-moddecl"].append("module icosoc (")
-icosoc_v["10-moddecl"].append("    input CLK12MHZ,")
+icosoc_v["10-moddecl"].append("    input CLKIN,")
 icosoc_v["10-moddecl"].append("    output reg LED1, LED2, LED3,")
 icosoc_v["10-moddecl"].append("")
 
-iowires |= set("CLK12MHZ LED1 LED2 LED3".split())
+iowires |= set("CLKIN LED1 LED2 LED3".split())
 
 icosoc_v["12-iopins"].append("")
 
@@ -924,7 +996,7 @@ iowires |= set("SRAM_CE SRAM_WE SRAM_OE SRAM_LB SRAM_UB".split())
 icosoc_v["95-endmod"].append("endmodule")
 
 icosoc_pcf["10-std"].append("""
-set_io CLK12MHZ R9
+set_io CLKIN R9
 
 set_io LED1 C8
 set_io LED2 F7
@@ -1147,9 +1219,9 @@ icosoc_mk["50-synthesis"].append("icosoc.blif: icosoc.v icosoc.ys firmware.hex")
 icosoc_mk["50-synthesis"].append("\tyosys -l icosoc.log -v3 icosoc.ys")
 
 icosoc_mk["50-synthesis"].append("icosoc.bin: icosoc.blif icosoc.pcf")
-icosoc_mk["50-synthesis"].append("\tset -x; for seed in 1234 2345 4567 5678 6789; do \\")
+icosoc_mk["50-synthesis"].append("\tset -x; for seed in 1234 2345 3456 4567 5678 6789 7890; do \\")
 icosoc_mk["50-synthesis"].append("\t\tarachne-pnr -s $$seed -d 8k -p icosoc.pcf -o icosoc.asc icosoc.blif && \\")
-icosoc_mk["50-synthesis"].append("\t\ticetime -c 16 -d hx8k -tr icosoc.rpt icosoc.asc && exit 0; \\")
+icosoc_mk["50-synthesis"].append("\t\ticetime -c 20 -d hx8k -tr icosoc.rpt icosoc.asc && exit 0; \\")
 icosoc_mk["50-synthesis"].append("\tdone; false")
 icosoc_mk["50-synthesis"].append("\ticepack icosoc.asc icosoc.bin")
 
@@ -1259,7 +1331,7 @@ testbench["30-inst"].append("    );")
 testbench["30-inst"].append("")
 
 testbench["90-footer"].append("""
-    assign CLK12MHZ = clk;
+    assign CLKIN = clk;
 
     wire [8:0] raspi_din;
     reg [8:0] raspi_dout = 9'b z_zzzz_zzzz;
