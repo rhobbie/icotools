@@ -13,6 +13,10 @@ static inline void icosoc_@name@_set_config(uint32_t bitmask) {
 static inline uint32_t icosoc_@name@_get_config() {
     return *(volatile uint32_t*)(0x20000000 + @addr@ * 0x10000);
 }
+
+static inline bool icosoc_@name@_read() {
+    return (*(volatile uint32_t*)(0x20000000 + @addr@ * 0x10000) & 0x80000000) != 0;
+}
 """
 
     code = code.replace("@name@", mod["name"])

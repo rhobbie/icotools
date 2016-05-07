@@ -10,7 +10,7 @@ void update_leds()
 
 void irq_handler(uint32_t irq_mask, uint32_t *regs)
 {
-	// timer interrupt
+	// IRQ 0: timer interrupt
 	if (irq_mask & 1)
 	{
 		// run IRQ payload
@@ -20,7 +20,7 @@ void irq_handler(uint32_t irq_mask, uint32_t *regs)
 		icosoc_timer(1000000);
 	}
 
-	// SBREAK, ILLINS, or BUSERROR
+	// IRQ 1, IRQ 2: SBREAK, ILLINS, or BUSERROR
 	if (irq_mask & 6)
 	{
 		printf("System error!\n");
@@ -71,12 +71,10 @@ void irq_handler(uint32_t irq_mask, uint32_t *regs)
 		icosoc_sbreak();
 	}
 
-	// other IRQs
-	if (irq_mask & ~7)
+	// IRQ 8: Extirq
+	if (irq_mask & (1 << 8))
 	{
-		for (int i = 3; i < 32; i++)
-			if (irq_mask & (1 << i))
-				printf("IRQ %d\n", i);
+		printf("External IRQ: PIN=%d\n", icosoc_demoirq_read());
 	}
 }
 
@@ -91,8 +89,8 @@ int main()
 	// start timer (IRQ 0)
 	icosoc_timer(1000000);
 
-	// trigger IRQ 8 on falling edge on PMOD1_1
-	icosoc_demoirq_set_config(icosoc_demoirq_trigger_fe);
+	// trigger IRQ 8 on any edge on PMOD1_1
+	icosoc_demoirq_set_config(icosoc_demoirq_trigger_fe | icosoc_demoirq_trigger_re);
 
 #if 0
 	// trigger IRQ 1 by calling sbreak

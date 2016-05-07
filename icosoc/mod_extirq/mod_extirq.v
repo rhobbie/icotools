@@ -52,7 +52,7 @@ module icosoc_mod_extirq #(
 		ctrl_done <= 0;
 
 		// Register file:
-		//   0x00 config register
+		//   0x00 config register (MSB reads pin)
 		if (!resetn) begin
 			config_word <= 0;
 		end else
@@ -63,7 +63,7 @@ module icosoc_mod_extirq #(
 			end
 			if (ctrl_rd) begin
 				ctrl_done <= 1;
-				ctrl_rdat <= config_word;
+				ctrl_rdat <= config_word | (pin_q2 << 31);
 			end
 		end
 	end
