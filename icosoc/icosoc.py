@@ -108,6 +108,9 @@ def parse_cfg(f):
     for line in f:
         line = line.split()
 
+        if "#" in line:
+            line = line[0:line.index("#")]
+
         if len(line) == 0 or line[0].startswith("#"):
             continue
 
