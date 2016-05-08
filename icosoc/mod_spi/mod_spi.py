@@ -5,6 +5,10 @@ static inline void icosoc_@name@_cs(uint32_t bitmask) {
     *(volatile uint32_t*)(0x20000004 + @addr@ * 0x10000) = bitmask;
 }
 
+static inline uint32_t icosoc_@name@_getcs() {
+    return *(volatile uint32_t*)(0x20000004 + @addr@ * 0x10000);
+}
+
 static inline uint8_t icosoc_@name@_xfer(uint8_t value) {
     *(volatile uint32_t*)(0x20000008 + @addr@ * 0x10000) = value;
     return *(volatile uint32_t*)(0x20000008 + @addr@ * 0x10000);
