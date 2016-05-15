@@ -1,5 +1,5 @@
 module icosoc_mod_extirq #(
-	parameter integer CLOCK_FREQ_HZ = 0,
+	parameter integer CLOCK_FREQ_HZ = 0
 ) (
 	input clk,
 	input resetn,
