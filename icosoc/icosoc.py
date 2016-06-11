@@ -5,11 +5,12 @@ from collections import defaultdict
 from argparse import ArgumentParser
 
 cmd = ArgumentParser ()
-cmd.add_argument \
-    ( "-c", "--no-clean-target"
-    , help   = "Don't generate clean:: target, generate CLEAN variable"
-    , action = 'store_true'
-    )
+cmd.add_argument("-c", "--no-clean-target",
+        help="Don't generate clean:: target, generate CLEAN variable",
+        action="store_true")
+cmd.add_argument("-f", "--custom-firmware",
+        help="Don't generate rules for firmware.elf",
+        action="store_true")
 opt = cmd.parse_args ()
 
 basedir = os.path.dirname(sys.argv[0])
@@ -418,7 +419,7 @@ icosoc_v["30-raspif"].append("""
     wire recv_ep0_ready;
     wire [7:0] recv_ep0_data;
 
-    // recv ep1: firmware upload
+    // recv ep1: unused
     wire recv_ep1_valid;
     wire recv_ep1_ready = 1;
     wire [7:0] recv_ep1_data = recv_ep0_data;
@@ -528,32 +529,6 @@ icosoc_v["30-raspif"].append("""
     assign send_ep0_data = ((recv_ep0_data << 5) + recv_ep0_data) ^ 7;
     assign send_ep0_valid = recv_ep0_valid;
     assign recv_ep0_ready = send_ep0_ready;
-
-    // -------------------------------
-    // Firmware upload (recv ep1)
-
-    reg [15:0] prog_mem_addr;
-    reg [31:0] prog_mem_data;
-    reg [1:0] prog_mem_state;
-    reg prog_mem_active = 0;
-    reg prog_mem_reset = 0;
-
-    always @(posedge clk) begin
-        if (recv_sync) begin
-            prog_mem_addr <= ~0;
-            prog_mem_data <= 0;
-            prog_mem_state <= 0;
-            prog_mem_active <= 0;
-            prog_mem_reset <= 0;
-        end else
-        if (recv_ep1_valid) begin
-            prog_mem_addr <= prog_mem_addr + &prog_mem_state;
-            prog_mem_data <= {recv_ep1_data, prog_mem_data[31:8]};
-            prog_mem_state <= prog_mem_state + 1;
-            prog_mem_active <= &prog_mem_state;
-            prog_mem_reset <= 1;
-        end
-    end
 """)
 
 icosoc_v["40-cpu"].append("""
@@ -572,25 +547,23 @@ icosoc_v["40-cpu"].append("""
     reg mem_ready;
     reg [31:0] mem_rdata;
 
-    wire resetn_picorv32 = resetn && !prog_mem_reset;
-
     picorv32 #(
         .COMPRESSED_ISA(<compisa>),
         .ENABLE_MUL(<muldiv>),
         .ENABLE_DIV(<muldiv>),
         .ENABLE_IRQ(1)
     ) cpu (
-        .clk       (clk            ),
-        .resetn    (resetn_picorv32),
-        .trap      (cpu_trap       ),
-        .mem_valid (mem_valid      ),
-        .mem_instr (mem_instr      ),
-        .mem_ready (mem_ready      ),
-        .mem_addr  (mem_addr       ),
-        .mem_wdata (mem_wdata      ),
-        .mem_wstrb (mem_wstrb      ),
-        .mem_rdata (mem_rdata      ),
-        .irq       (cpu_irq        )
+        .clk       (clk      ),
+        .resetn    (resetn   ),
+        .trap      (cpu_trap ),
+        .mem_valid (mem_valid),
+        .mem_instr (mem_instr),
+        .mem_ready (mem_ready),
+        .mem_addr  (mem_addr ),
+        .mem_wdata (mem_wdata),
+        .mem_wstrb (mem_wstrb),
+        .mem_rdata (mem_rdata),
+        .irq       (cpu_irq  )
     );
 """
 .replace("<compisa>", ("1" if enable_compressed_isa else "0"))
@@ -820,7 +793,11 @@ icosoc_v["70-bus"].append("""
 
     localparam BOOT_MEM_SIZE = 1024;
     reg [31:0] memory [0:BOOT_MEM_SIZE-1];
+`ifdef TESTBENCH
     initial $readmemh("firmware.hex", memory);
+`else
+    initial $readmemh("firmware_seed.hex", memory);
+`endif
 
     always @(posedge clk) begin
         mem_ready <= 0;
@@ -837,7 +814,7 @@ icosoc_v["72-bus"].append("""
 
         recv_ep2_ready <= 0;
 
-        if (!resetn_picorv32) begin
+        if (!resetn) begin
             LED1 <= 0;
             LED2 <= 0;
             LED3 <= 0;
@@ -848,10 +825,6 @@ icosoc_v["72-bus"].append("""
 
             send_ep2_valid <= 0;
             spiflash_state <= 0;
-
-            if (prog_mem_active) begin
-                memory[prog_mem_addr] <= prog_mem_data;
-            end
         end else
         if (mem_valid && !mem_ready) begin
             (* parallel_case *)
@@ -1151,6 +1124,7 @@ else:
 
 icosoc_mk["10-top"].append("")
 
+icosoc_mk["10-top"].append("ICOSOC_ROOT ?= %s" % basedir)
 icosoc_mk["10-top"].append("RISCV_TOOLS_PREFIX ?= /opt/riscv32i%s%s/bin/riscv32-unknown-elf-" %
         ("m" if enable_muldiv_isa else "", "c" if enable_compressed_isa else ""))
 
@@ -1171,9 +1145,6 @@ icosoc_mk["10-top"].append("\t@echo \"\"")
 icosoc_mk["10-top"].append("\t@echo \"Building FPGA bitstream and program:\"")
 icosoc_mk["10-top"].append("\t@echo \"   make prog_sram\"")
 icosoc_mk["10-top"].append("\t@echo \"   make prog_flash\"")
-icosoc_mk["10-top"].append("\t@echo \"\"")
-icosoc_mk["10-top"].append("\t@echo \"Building firmware image and update:\"")
-icosoc_mk["10-top"].append("\t@echo \"   make prog_firmware\"")
 icosoc_mk["10-top"].append("\t@echo \"\"")
 icosoc_mk["10-top"].append("\t@echo \"Resetting FPGA (prevent boot from flash):\"")
 icosoc_mk["10-top"].append("\t@echo \"   make reset_halt\"")
@@ -1204,10 +1175,6 @@ icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'killall -9 icoprog || true'")
 icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'icoprog -f' < icosoc.bin")
 icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'icoprog -O8 -f' < appimage_lo.bin")
 icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'icoprog -O16 -f' < appimage_hi.bin")
-icosoc_mk["10-top"].append("")
-icosoc_mk["10-top"].append("prog_firmware: firmware.bin")
-icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'killall -9 icoprog || true'")
-icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'icoprog -w1' < firmware.bin")
 icosoc_mk["10-top"].append("")
 icosoc_mk["10-top"].append("reset_halt:")
 icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'killall -9 icoprog || true'")
@@ -1245,15 +1212,19 @@ icosoc_ys["10-readvlog"].append("read_verilog %s/common/icosoc_flashmem.v" % bas
 icosoc_ys["10-readvlog"].append("read_verilog %s/common/icosoc_raspif.v" % basedir)
 icosoc_ys["50-synthesis"].append("synth_ice40 -top icosoc -blif icosoc.blif")
 
-icosoc_mk["50-synthesis"].append("icosoc.blif: icosoc.v icosoc.ys firmware.hex")
+icosoc_mk["50-synthesis"].append("icosoc.blif: icosoc.v icosoc.ys firmware_seed.hex")
 icosoc_mk["50-synthesis"].append("\tyosys -l icosoc.log -v3 icosoc.ys")
 
-icosoc_mk["50-synthesis"].append("icosoc.bin: icosoc.blif icosoc.pcf")
+icosoc_mk["50-synthesis"].append("icosoc.asc: icosoc.blif icosoc.pcf")
 icosoc_mk["50-synthesis"].append("\tset -x; for seed in 1234 2345 3456 4567 5678 6789 7890; do \\")
-icosoc_mk["50-synthesis"].append("\t\tarachne-pnr -s $$seed -d 8k -p icosoc.pcf -o icosoc.asc icosoc.blif && \\")
-icosoc_mk["50-synthesis"].append("\t\ticetime -c 20 -d hx8k -tr icosoc.rpt icosoc.asc && exit 0; \\")
+icosoc_mk["50-synthesis"].append("\t\tarachne-pnr -s $$seed -d 8k -p icosoc.pcf -o icosoc.new_asc icosoc.blif && \\")
+icosoc_mk["50-synthesis"].append("\t\ticetime -c 20 -d hx8k -tr icosoc.rpt icosoc.new_asc && exit 0; \\")
 icosoc_mk["50-synthesis"].append("\tdone; false")
-icosoc_mk["50-synthesis"].append("\ticepack icosoc.asc icosoc.bin")
+icosoc_mk["50-synthesis"].append("\tmv icosoc.new_asc icosoc.asc")
+
+icosoc_mk["50-synthesis"].append("icosoc.bin: icosoc.asc firmware_seed.hex firmware.hex")
+icosoc_mk["50-synthesis"].append("\ticebram firmware_seed.hex firmware.hex < icosoc.asc | icepack > icosoc.new_bin")
+icosoc_mk["50-synthesis"].append("\tmv icosoc.new_bin icosoc.bin")
 
 tbfiles = set()
 tbfiles.add("icosoc.v")
@@ -1276,11 +1247,12 @@ icosoc_mk["60-simulation"].append("\tvvp -N testbench +vcd")
 icosoc_mk["60-simulation"].append("testbench_novcd: testbench firmware.hex appimage.hex")
 icosoc_mk["60-simulation"].append("\tvvp -N testbench")
 
-icosoc_mk["70-firmware"].append("firmware.elf: %s/common/firmware.S %s/common/firmware.c %s/common/firmware.lds" % (basedir, basedir, basedir))
-icosoc_mk["70-firmware"].append("\t$(RISCV_TOOLS_PREFIX)gcc -Os -m32 %s-march=RV32IXcustom -ffreestanding -nostdlib -Wall -o firmware.elf %s/common/firmware.S %s/common/firmware.c \\" %
-        ("-DFLASHPMEM " if enable_flashpmem else "", basedir, basedir))
-icosoc_mk["70-firmware"].append("\t\t\t--std=gnu99 -Wl,-Bstatic,-T,%s/common/firmware.lds,-Map,firmware.map,--strip-debug -lgcc" % basedir)
-icosoc_mk["70-firmware"].append("\tchmod -x firmware.elf")
+if not opt.custom_firmware:
+    icosoc_mk["70-firmware"].append("firmware.elf: %s/common/firmware.S %s/common/firmware.c %s/common/firmware.lds" % (basedir, basedir, basedir))
+    icosoc_mk["70-firmware"].append("\t$(RISCV_TOOLS_PREFIX)gcc -Os -m32 %s-march=RV32IXcustom -ffreestanding -nostdlib -Wall -o firmware.elf %s/common/firmware.S %s/common/firmware.c \\" %
+            ("-DFLASHPMEM " if enable_flashpmem else "", basedir, basedir))
+    icosoc_mk["70-firmware"].append("\t\t\t--std=gnu99 -Wl,-Bstatic,-T,%s/common/firmware.lds,-Map,firmware.map,--strip-debug -lgcc" % basedir)
+    icosoc_mk["70-firmware"].append("\tchmod -x firmware.elf")
 
 icosoc_mk["70-firmware"].append("firmware.bin: firmware.elf")
 icosoc_mk["70-firmware"].append("\t$(RISCV_TOOLS_PREFIX)objcopy -O binary firmware.elf firmware.bin")
@@ -1289,6 +1261,9 @@ icosoc_mk["70-firmware"].append("\tchmod -x firmware.bin")
 icosoc_mk["70-firmware"].append("firmware.hex: %s/common/makehex.py firmware.bin" % basedir)
 icosoc_mk["70-firmware"].append("\tpython3 %s/common/makehex.py firmware.bin 1024 > firmware.hex" % basedir)
 icosoc_mk["70-firmware"].append("\t@echo \"Firmware size: $$(grep .. firmware.hex | wc -l) / $$(wc -l < firmware.hex)\"")
+
+icosoc_mk["70-firmware"].append("firmware_seed.hex:")
+icosoc_mk["70-firmware"].append("\ticebram -g 32 1024 > firmware_seed.hex")
 
 icosoc_mk["90-extradeps"].append("icosoc.v: icosoc.mk")
 icosoc_mk["90-extradeps"].append("icosoc.ys: icosoc.mk")
@@ -1300,7 +1275,7 @@ icosoc_mk["90-extradeps"].append("icosoc.blif: %s/common/*" % basedir)
 icosoc_mk["90-extradeps"].append("icosoc.blif: %s/mod_*/*" % basedir)
 
 filelist = [
-    "firmware.bin firmware.elf firmware.hex firmware.map",
+    "firmware.bin firmware.elf firmware_seed.hex firmware.hex firmware.map",
     "icosoc.mk icosoc.ys icosoc.pcf icosoc.v icosoc.h icosoc.c icosoc.ld",
     "icosoc.blif icosoc.asc icosoc.bin icosoc.log icosoc.rpt debug.vcd",
     "testbench testbench.v testbench.vcd",

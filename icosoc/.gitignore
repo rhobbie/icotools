@@ -5,6 +5,7 @@
 /examples/*/appimage_hi.bin
 /examples/*/firmware.bin
 /examples/*/firmware.elf
+/examples/*/firmware_seed.hex
 /examples/*/firmware.hex
 /examples/*/firmware.map
 /examples/*/icosoc.asc
