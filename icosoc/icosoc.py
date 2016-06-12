@@ -318,24 +318,8 @@ if board == "icoboard_beta":
 """)
 elif board == "icoboard_gamma":
     icosoc_v["20-clockgen"].append("""
-    SB_PLL40_PAD #(
-        .FEEDBACK_PATH("SIMPLE"),
-        .DELAY_ADJUSTMENT_MODE_FEEDBACK("FIXED"),
-        .DELAY_ADJUSTMENT_MODE_RELATIVE("FIXED"),
-        .PLLOUT_SELECT("GENCLK"),
-        .FDA_FEEDBACK(4'b1111),
-        .FDA_RELATIVE(4'b1111),
-        .DIVR(4'b0000),
-        .DIVF(7'b0011111),
-        .DIVQ(3'b011),
-        .FILTER_RANGE(3'b111)
-    ) pll1 (
-        .PACKAGEPIN     (CLKIN        ),
-        .PLLOUTCORE     (clk_100mhz   ),
-        .LOCK           (pll1_locked  ),
-        .BYPASS         (1'b0         ),
-        .RESETB         (1'b1         )
-    );
+    assign clk_100mhz = CLKIN;
+    assign pll1_locked = 1;
 """)
 else:
     assert False
@@ -384,7 +368,8 @@ icosoc_v["30-sramif"].append("""
 
     reg [1:0] sram_state;
     reg sram_wrlb, sram_wrub;
-    reg [15:0] sram_addr, sram_dout;
+    reg [18:0] sram_addr;
+    reg [15:0] sram_dout;
     wire [15:0] sram_din;
 
     SB_IO #(
@@ -398,7 +383,7 @@ icosoc_v["30-sramif"].append("""
         .D_IN_0(sram_din)
     );
 
-    assign {SRAM_A15, SRAM_A14, SRAM_A13, SRAM_A12, SRAM_A11, SRAM_A10, SRAM_A9, SRAM_A8,
+    assign {SRAM_A18, SRAM_A17, SRAM_A16, SRAM_A15, SRAM_A14, SRAM_A13, SRAM_A12, SRAM_A11, SRAM_A10, SRAM_A9, SRAM_A8,
             SRAM_A7, SRAM_A6, SRAM_A5, SRAM_A4, SRAM_A3, SRAM_A2, SRAM_A1, SRAM_A0} = sram_addr;
 
     assign SRAM_CE = 0;
@@ -407,6 +392,9 @@ icosoc_v["30-sramif"].append("""
     assign SRAM_LB = (sram_wrlb || sram_wrub) ? !sram_wrlb : 0;
     assign SRAM_UB = (sram_wrlb || sram_wrub) ? !sram_wrub : 0;
 """)
+
+if board == "icoboard_beta":
+    icosoc_v["30-sramif"].append("    wire SRAM_A18, SRAM_A17, SRAM_A16;\n")
 
 icosoc_v["30-raspif"].append("""
     // -------------------------------
@@ -985,6 +973,10 @@ iowires |= set("RASPI_11 RASPI_12 RASPI_15 RASPI_16 RASPI_19 RASPI_21 RASPI_26 R
 icosoc_v["15-moddecl"].append("    // SRAM Interface")
 icosoc_v["15-moddecl"].append("    output SRAM_A0, SRAM_A1, SRAM_A2, SRAM_A3, SRAM_A4, SRAM_A5, SRAM_A6, SRAM_A7,")
 icosoc_v["15-moddecl"].append("    output SRAM_A8, SRAM_A9, SRAM_A10, SRAM_A11, SRAM_A12, SRAM_A13, SRAM_A14, SRAM_A15,")
+
+if board != "icoboard_beta":
+    icosoc_v["15-moddecl"].append("    output SRAM_A16, SRAM_A17, SRAM_A18,")
+
 icosoc_v["15-moddecl"].append("    inout SRAM_D0, SRAM_D1, SRAM_D2, SRAM_D3, SRAM_D4, SRAM_D5, SRAM_D6, SRAM_D7,")
 icosoc_v["15-moddecl"].append("    inout SRAM_D8, SRAM_D9, SRAM_D10, SRAM_D11, SRAM_D12, SRAM_D13, SRAM_D14, SRAM_D15,")
 icosoc_v["15-moddecl"].append("    output SRAM_CE, SRAM_WE, SRAM_OE, SRAM_LB, SRAM_UB")
@@ -1095,6 +1087,9 @@ set_io SRAM_A12 P2
 set_io SRAM_A13 R1
 set_io SRAM_A14 N3
 set_io SRAM_A15 P1
+set_io SRAM_A16 M11
+set_io SRAM_A17 P10
+set_io SRAM_A18 P8
 
 set_io SRAM_D0  T2
 set_io SRAM_D1  R3
