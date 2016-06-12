@@ -1,4 +1,10 @@
 
+ifeq ($(shell bash -c 'type -p icoprog'),)
+SSH_RASPI ?= ssh pi@raspi
+else
+SSH_RASPI ?= sh -c
+endif
+
 icoprog: icoprog.cc
 	gcc -o icoprog -Wall -Os icoprog.cc -lwiringPi -lrt -lstdc++
 
@@ -11,16 +17,16 @@ example.txt: example.blif example.pcf
 example.bin: example.txt
 	icepack example.txt example.bin
 
-example_sram: icoprog example.bin
-	sudo ./icoprog -p < example.bin
+example_sram: example.bin
+	$(SSH_RASPI) 'icoprog -p' < example.bin
 
-example_flash: icoprog example.bin
-	sudo ./icoprog -f < example.bin
-	sudo ./icoprog -b
+example_flash: example.bin
+	$(SSH_RASPI) 'icoprog -f' < example.bin
+	$(SSH_RASPI) 'icoprog -b'
 
-reset: icoprog
-	sudo ./icoprog -f < example.pcf
-	sudo ./icoprog -b
+reset:
+	$(SSH_RASPI) 'icoprog -f' < example.pcf
+	$(SSH_RASPI) 'icoprog -b'
 
 install: icoprog
 	sudo install icoprog /usr/local/bin/
