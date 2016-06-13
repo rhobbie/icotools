@@ -80,6 +80,7 @@ int main()
 	}
 
 	console_puts(found_error ? "ERROR\n" : "OK\n");
+	console_putc(0);
 
 	uint32_t ledstrip = 0x11111111;
 	*(volatile uint32_t*)(0x20000004 + 1 * 0x10000) = ~0;
