@@ -284,7 +284,7 @@ void prog_flashmem(int pageoffset)
 		int n = std::min(256, int(prog_data.size()) - addr);
 		uint8_t buffer[256];
 
-		for (int retry_count = 0; retry_count < 10; retry_count++)
+		for (int retry_count = 0; retry_count < 100; retry_count++)
 		{
 			flash_write_enable();
 			flash_write(addr + pageoffset * 0x10000, &prog_data[addr], n);
