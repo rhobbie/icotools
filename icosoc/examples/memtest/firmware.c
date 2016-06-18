@@ -50,6 +50,10 @@ int main()
 {
 	bool found_error = false;
 
+	uint32_t ledstrip = ~0;
+	*(volatile uint32_t*)(0x20000004 + 1 * 0x10000) = ~0;
+	*(volatile uint32_t*)(0x20000000 + 1 * 0x10000) = ledstrip;
+
 	setled(1);
 	console_puts("[memtest] detecting memory size.. ");
 
@@ -82,25 +86,15 @@ int main()
 	console_puts(found_error ? "ERROR\n" : "OK\n");
 	console_putc(0);
 
-	uint32_t ledstrip = 0x11111111;
-	*(volatile uint32_t*)(0x20000004 + 1 * 0x10000) = ~0;
-	*(volatile uint32_t*)(0x20000000 + 1 * 0x10000) = ledstrip;
-
-	for (int k = 0;; k = (k+1) & 63)
+	for (int k = 0;; k = (k+1) & 7)
 	{
 		for (int i = 0; i < 500000; i++)
 			asm volatile ("");
 
 		setled((k & 1) ? (found_error ? 4 : 3) : 0);
 
-		if (k == 0)
-			ledstrip = 0x11111111;
-		else if (k < 16)
-			ledstrip = (ledstrip << 1) | (ledstrip >> 31);
-		else if (k < 24)
-			ledstrip = ~0;
-		else
-			ledstrip = (k & 1) ? ~0 : 0;
+		if (k < 4)
+			ledstrip = ~ledstrip;
 
 		*(volatile uint32_t*)(0x20000000 + 1 * 0x10000) = ledstrip;
 	}
