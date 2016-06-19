@@ -575,7 +575,7 @@ for m in mods.values():
     if m["addr"] is not None:
         txt.append("    reg mod_%s_ctrl_wr;" % m["name"])
         txt.append("    reg mod_%s_ctrl_rd;" % m["name"])
-        txt.append("    reg [ 7:0] mod_%s_ctrl_addr;" % m["name"])
+        txt.append("    reg [15:0] mod_%s_ctrl_addr;" % m["name"])
         txt.append("    reg [31:0] mod_%s_ctrl_wdat;" % m["name"])
         txt.append("    wire [31:0] mod_%s_ctrl_rdat;" % m["name"])
         txt.append("    wire mod_%s_ctrl_done;" % m["name"])
