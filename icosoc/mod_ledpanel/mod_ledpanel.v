@@ -41,18 +41,21 @@ module icosoc_mod_ledpanel (
 	output reg panel_a, panel_b, panel_c, panel_d, panel_clk, panel_stb, panel_oe
 );
 	parameter integer CLOCK_FREQ_HZ = 6000000;
+	parameter integer SIZE = 1;
 
-	reg [3:0] video_mem_r [0:1023];
-	reg [3:0] video_mem_g [0:1023];
-	reg [3:0] video_mem_b [0:1023];
+	localparam integer SIZE_BITS = $clog2(SIZE);
+
+	reg [3:0] video_mem_r [0:SIZE*1024-1];
+	reg [3:0] video_mem_g [0:SIZE*1024-1];
+	reg [3:0] video_mem_b [0:SIZE*1024-1];
 
 `ifdef TESTBENCH
 	initial begin:video_mem_init
 		integer i;
-		for (i = 0; i < 1024; i = i+1) begin
-			video_mem_r[i] = 8;
-			video_mem_g[i] = 4;
-			video_mem_b[i] = 2;
+		for (i = 0; i < SIZE*1024; i = i+1) begin
+			video_mem_r[i] = 15;
+			video_mem_g[i] = ((i >> 5) % 32 == 0) ? 5 : 4;
+			video_mem_b[i] = ((i >> 5) % 32 == 31) ? 3 : 2;
 		end
 	end
 `endif
@@ -68,24 +71,24 @@ module icosoc_mod_ledpanel (
 		end
 	end
 
-	reg [8:0] cnt_x = 0;
+	reg [8+SIZE_BITS:0] cnt_x = 0;
 	reg [3:0] cnt_y = 0;
 	reg [1:0] cnt_z = 0;
 	reg state = 0;
 
-	reg [4:0] addr_x;
+	reg [4+SIZE_BITS:0] addr_x;
 	reg [4:0] addr_y;
 	reg [2:0] addr_z;
 	reg [2:0] data_rgb;
 	reg [2:0] data_rgb_q;
-	reg [8:0] max_cnt_x;
+	reg [8+SIZE_BITS:0] max_cnt_x;
 
 	always @(posedge clk) begin
 		case (cnt_z)
-			0: max_cnt_x <= 36;
-			1: max_cnt_x <= 64;
-			2: max_cnt_x <= 128;
-			3: max_cnt_x <= 256;
+			0: max_cnt_x <= 32*SIZE+4;
+			1: max_cnt_x <= 64*SIZE;
+			2: max_cnt_x <= 128*SIZE;
+			3: max_cnt_x <= 256*SIZE;
 		endcase
 	end
 
@@ -104,10 +107,10 @@ module icosoc_mod_ledpanel (
 	end
 
 	always @(posedge clk) begin
-		panel_oe <= 30 < cnt_x && cnt_x < 40;
+		panel_oe <= 32*SIZE-2 < cnt_x && cnt_x < 32*SIZE+8;
 		if (state) begin
-			panel_clk <= 1 < cnt_x && cnt_x < 34;
-			panel_stb <= cnt_x == 34;
+			panel_clk <= 1 < cnt_x && cnt_x < 32*SIZE+2;
+			panel_stb <= cnt_x == 32*SIZE+2;
 		end else begin
 			panel_clk <= 0;
 			panel_stb <= 0;
@@ -129,7 +132,7 @@ module icosoc_mod_ledpanel (
 	always @(posedge clk) begin
 		data_rgb_q <= data_rgb;
 		if (!state) begin
-			if (0 < cnt_x && cnt_x < 33) begin
+			if (0 < cnt_x && cnt_x < 32*SIZE+1) begin
 				{panel_r1, panel_r0} <= {data_rgb[2], data_rgb_q[2]};
 				{panel_g1, panel_g0} <= {data_rgb[1], data_rgb_q[1]};
 				{panel_b1, panel_b0} <= {data_rgb[0], data_rgb_q[0]};
