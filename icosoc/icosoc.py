@@ -48,10 +48,17 @@ def setboard(boardname):
 
     if boardname == "icoboard_beta":
         pmod_locs = [
+            # On-board PMODS
             "D8 C7 C6 B3 A1 A2 B1 B2".split(),
             "A9 B9 A10 B10 A11 B11 A16 A15".split(),
             "T8 T7 T6 T5 T3 T2 T1 R2".split(),
-            "R14 T14 T13 T11 T10 T9 T16 T15".split()
+            "R14 T14 T13 T11 T10 T9 T16 T15".split(),
+
+            # Ico-X-Board on J1
+            "B5 B4 C5 C3 H5 J5 K5 B6".split(),
+            "F5 E6 G5 C1 D7 D5 E5 D6".split(),
+            "D4 E3 E4 F3 F4 G3 G4 H3".split(),
+            "D2 E2 F1 F2 G1 G2 H1 H2".split(),
         ]
 
     elif boardname == "icoboard_gamma":
