@@ -170,7 +170,6 @@ def parse_cfg(f):
 
             if line[1] not in used_modtypes:
                 used_modtypes.add(line[1])
-                icosoc_ys["12-readvlog"].append("read_verilog %s/mod_%s/mod_%s.v" % (basedir, line[1], line[1]))
                 modvlog.add("%s/mod_%s/mod_%s.v" % (basedir, line[1], line[1]))
             continue
 
@@ -389,7 +388,12 @@ icosoc_v["30-sramif"].append("""
         .D_OUT_0(sram_dout),
         .D_IN_0(sram_din)
     );
+""")
 
+if board == "icoboard_beta":
+    icosoc_v["30-sramif"].append("    wire SRAM_A18, SRAM_A17, SRAM_A16;\n")
+
+icosoc_v["30-sramif"].append("""
     assign {SRAM_A18, SRAM_A17, SRAM_A16, SRAM_A15, SRAM_A14, SRAM_A13, SRAM_A12, SRAM_A11, SRAM_A10, SRAM_A9, SRAM_A8,
             SRAM_A7, SRAM_A6, SRAM_A5, SRAM_A4, SRAM_A3, SRAM_A2, SRAM_A1, SRAM_A0} = sram_addr;
 
@@ -399,9 +403,6 @@ icosoc_v["30-sramif"].append("""
     assign SRAM_LB = (sram_wrlb || sram_wrub) ? !sram_wrlb : 0;
     assign SRAM_UB = (sram_wrlb || sram_wrub) ? !sram_wrub : 0;
 """)
-
-if board == "icoboard_beta":
-    icosoc_v["30-sramif"].append("    wire SRAM_A18, SRAM_A17, SRAM_A16;\n")
 
 icosoc_v["30-raspif"].append("""
     // -------------------------------
@@ -573,7 +574,7 @@ irq_terms = list()
 txt = icosoc_v["50-mods"]
 for m in mods.values():
     if m["addr"] is not None:
-        txt.append("    reg mod_%s_ctrl_wr;" % m["name"])
+        txt.append("    reg [3:0] mod_%s_ctrl_wr;" % m["name"])
         txt.append("    reg mod_%s_ctrl_rd;" % m["name"])
         txt.append("    reg [15:0] mod_%s_ctrl_addr;" % m["name"])
         txt.append("    reg [31:0] mod_%s_ctrl_wdat;" % m["name"])
@@ -623,7 +624,7 @@ for m in mods.values():
         icosoc_v["73-bus-modwrite"].append("""
                         if (mem_addr[23:16] == %s) begin
                             mem_ready <= mod_%s_ctrl_done;
-                            mod_%s_ctrl_wr <= !mod_%s_ctrl_done;
+                            mod_%s_ctrl_wr <= mod_%s_ctrl_done ? 0 : mem_wstrb;
                         end
         """ % (m["addr"], m["name"], m["name"], m["name"]))
 
@@ -639,6 +640,8 @@ for m in mods.values():
         mod_loaded = importlib.import_module("mod_%s.mod_%s" % (m["type"], m["type"]))
         if hasattr(mod_loaded, "generate_c_code"):
             mod_loaded.generate_c_code(icosoc_h, icosoc_c, m)
+        if hasattr(mod_loaded, "extra_vlog_files"):
+            modvlog |= mod_loaded.extra_vlog_files(basedir, m)
 
 txt.append("");
 if len(irq_terms) > 0:
@@ -646,6 +649,8 @@ if len(irq_terms) > 0:
 else:
     txt.append("assign cpu_irq = 0;");
 
+for vlog in modvlog:
+    icosoc_ys["12-readvlog"].append("read_verilog %s" % (vlog))
 
 icosoc_v["60-debug"].append("""
     // -------------------------------
@@ -1401,6 +1406,15 @@ testbench["90-footer"].append("""
                 $fflush();
             end
         end
+    end
+
+    initial begin
+        @(appimage_ready);
+        repeat (100) @(posedge clk);
+        @(posedge uut.cpu_trap);
+        repeat (100) @(posedge clk);
+        $display("-- CPU Trapped --");
+        $finish;
     end
 
     initial begin:appimgage_init
