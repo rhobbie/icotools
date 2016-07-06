@@ -1,5 +1,5 @@
 CC = $(RISCV_TOOLS_PREFIX)gcc
-CFLAGS = --std=gnu99 -Os -MD -Wall
+CFLAGS = --std=gnu99 -Os -MD -Wall -march=RV32IXcustom
 OBJS = main.o icosoc.o
 
 default: help
