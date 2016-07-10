@@ -650,7 +650,7 @@ else:
     txt.append("assign cpu_irq = 0;");
 
 for vlog in modvlog:
-    icosoc_ys["12-readvlog"].append("read_verilog %s" % (vlog))
+    icosoc_ys["12-readvlog"].append("read_verilog -D ICOSOC %s" % (vlog))
 
 icosoc_v["60-debug"].append("""
     // -------------------------------
@@ -1211,12 +1211,12 @@ icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'killall -9 icoprog || true'")
 icosoc_mk["10-top"].append("\tsedexpr=\"$$( grep '//.*debug_.*->' icosoc.v | sed 's,.*\(debug_\),s/\\1,; s, *-> *, /,; s, *$$, /;,;'; )\"; \\")
 icosoc_mk["10-top"].append("\t\t\t$(SSH_RASPI) 'icoprog -V31' | sed -e \"$$sedexpr\" > debug.vcd")
 
-icosoc_ys["10-readvlog"].append("read_verilog icosoc.v")
-icosoc_ys["10-readvlog"].append("read_verilog %s/common/picorv32.v" % basedir)
-icosoc_ys["10-readvlog"].append("read_verilog %s/common/icosoc_crossclkfifo.v" % basedir)
-icosoc_ys["10-readvlog"].append("read_verilog %s/common/icosoc_debugger.v" % basedir)
-icosoc_ys["10-readvlog"].append("read_verilog %s/common/icosoc_flashmem.v" % basedir)
-icosoc_ys["10-readvlog"].append("read_verilog %s/common/icosoc_raspif.v" % basedir)
+icosoc_ys["10-readvlog"].append("read_verilog -D ICOSOC icosoc.v")
+icosoc_ys["10-readvlog"].append("read_verilog -D ICOSOC %s/common/picorv32.v" % basedir)
+icosoc_ys["10-readvlog"].append("read_verilog -D ICOSOC %s/common/icosoc_crossclkfifo.v" % basedir)
+icosoc_ys["10-readvlog"].append("read_verilog -D ICOSOC %s/common/icosoc_debugger.v" % basedir)
+icosoc_ys["10-readvlog"].append("read_verilog -D ICOSOC %s/common/icosoc_flashmem.v" % basedir)
+icosoc_ys["10-readvlog"].append("read_verilog -D ICOSOC %s/common/icosoc_raspif.v" % basedir)
 icosoc_ys["50-synthesis"].append("synth_ice40 -top icosoc -blif icosoc.blif")
 
 icosoc_mk["50-synthesis"].append("icosoc.blif: icosoc.v icosoc.ys firmware_seed.hex")
@@ -1246,7 +1246,7 @@ tbfiles.add("%s/common/sim_spiflash.v" % basedir)
 tbfiles |= modvlog
 
 icosoc_mk["60-simulation"].append("testbench: %s" % (" ".join(tbfiles)))
-icosoc_mk["60-simulation"].append("\tiverilog -D TESTBENCH -o testbench %s $(shell yosys-config --datdir/ice40/cells_sim.v)" % (" ".join(tbfiles)))
+icosoc_mk["60-simulation"].append("\tiverilog -D ICOSOC -D TESTBENCH -o testbench %s $(shell yosys-config --datdir/ice40/cells_sim.v)" % (" ".join(tbfiles)))
 
 icosoc_mk["60-simulation"].append("testbench_vcd: testbench firmware.hex appimage.hex")
 icosoc_mk["60-simulation"].append("\tvvp -N testbench +vcd")
