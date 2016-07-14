@@ -545,6 +545,22 @@ void test_link()
 	fprintf(stderr, "All tests passed.\n");
 }
 
+void test_bw()
+{
+	fprintf(stderr, "Sending and receiving 1 MB of test data ..\n");
+
+	link_sync();
+	send_word(0x100);
+
+	for (int k = 0; k < 1024*1024/64; k++)
+	{
+		for (int i = 0; i < 64; i++)
+			send_word(k ^ i);
+
+		while (recv_word() != 0x1ff) { }
+	}
+}
+
 void write_endpoint(int epnum, int trignum)
 {
 	link_sync(trignum);
@@ -776,6 +792,9 @@ void help(const char *progname)
 	fprintf(stderr, "Testing bit-parallel link (using ep0):\n");
 	fprintf(stderr, "    %s -T\n", progname);
 	fprintf(stderr, "\n");
+	fprintf(stderr, "Testing link bandwidth (using ep0):\n");
+	fprintf(stderr, "    %s -B\n", progname);
+	fprintf(stderr, "\n");
 	fprintf(stderr, "Writing a file to ep N:\n");
 	fprintf(stderr, "    %s -w N < data.bin\n", progname);
 	fprintf(stderr, "\n");
@@ -805,7 +824,7 @@ int main(int argc, char **argv)
 	int pageoffset = 0;
 	char mode = 0;
 
-	while ((opt = getopt(argc, argv, "RbpfF:Tw:r:c:vzZt:O:V:")) != -1)
+	while ((opt = getopt(argc, argv, "RbpfF:TBw:r:c:vzZt:O:V:")) != -1)
 	{
 		switch (opt)
 		{
@@ -822,6 +841,7 @@ int main(int argc, char **argv)
 		case 'p':
 		case 'f':
 		case 'T':
+		case 'B':
 			if (mode)
 				help(argv[0]);
 			mode = opt;
@@ -894,6 +914,13 @@ int main(int argc, char **argv)
 		wiringPiSetup();
 		reset_inout();
 		test_link();
+		reset_inout();
+	}
+
+	if (mode == 'B') {
+		wiringPiSetup();
+		reset_inout();
+		test_bw();
 		reset_inout();
 	}
 
