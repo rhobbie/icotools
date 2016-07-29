@@ -1,12 +1,19 @@
 
+USBMODE ?= 0
+
 ifeq ($(shell bash -c 'type -p icoprog'),)
 SSH_RASPI ?= ssh pi@raspi
 else
 SSH_RASPI ?= sh -c
 endif
 
+ifeq ($(USBMODE),1)
+icoprog: icoprog.cc
+	gcc -o icoprog -Wall -Os icoprog.cc -D USBMODE -lftdi -lrt -lstdc++
+else
 icoprog: icoprog.cc
 	gcc -o icoprog -Wall -Os icoprog.cc -lwiringPi -lrt -lstdc++
+endif
 
 example.blif: example.v
 	yosys -p 'synth_ice40 -blif example.blif' example.v
