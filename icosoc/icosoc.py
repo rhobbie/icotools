@@ -1283,9 +1283,9 @@ icosoc_mk["90-extradeps"].append("icosoc.ys: icosoc.mk")
 icosoc_mk["90-extradeps"].append("icosoc.pcf: icosoc.mk")
 icosoc_mk["90-extradeps"].append("icosoc.mk: icosoc.cfg")
 icosoc_mk["90-extradeps"].append("icosoc.mk: %s/icosoc.py" % basedir)
-icosoc_mk["90-extradeps"].append("icosoc.mk: %s/mod_*/*" % basedir)
-icosoc_mk["90-extradeps"].append("icosoc.blif: %s/common/*" % basedir)
-icosoc_mk["90-extradeps"].append("icosoc.blif: %s/mod_*/*" % basedir)
+icosoc_mk["90-extradeps"].append("icosoc.mk: %s/mod_*/*.py" % basedir)
+icosoc_mk["90-extradeps"].append("icosoc.blif: %s/common/*.v" % basedir)
+icosoc_mk["90-extradeps"].append("icosoc.blif: %s/mod_*/*.v" % basedir)
 
 filelist = [
     "firmware.bin firmware.elf firmware_seed.hex firmware.hex firmware.map",
