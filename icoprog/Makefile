@@ -38,6 +38,10 @@ reset:
 install: icoprog
 	sudo install icoprog /usr/local/bin/
 	sudo chmod u+s /usr/local/bin/icoprog
+
+uninstall:
+	sudo rm -f /usr/local/bin/icoprog
+
 clean:
 	rm -f icoprog example.blif example.txt example.bin
 
