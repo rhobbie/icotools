@@ -656,6 +656,7 @@ void epsilon_sleep()
 
 void send_word(int v)
 {
+#ifndef USBMODE
 	if (current_send_recv_mode != 's')
 	{
 		digitalWrite(RASPI_DIR, HIGH);
@@ -696,10 +697,99 @@ void send_word(int v)
 	epsilon_sleep();
 	digitalWrite(RASPI_CLK, LOW);
 	epsilon_sleep();
+#else
+	if (current_send_recv_mode != 's')
+	{
+		ftdistate_val |= 1 << RASPI_DIR;
+
+		ftdistate_dir |= 1 << RASPI_D8;
+		ftdistate_dir |= 1 << RASPI_D7;
+		ftdistate_dir |= 1 << RASPI_D6;
+		ftdistate_dir |= 1 << RASPI_D5;
+		ftdistate_dir |= 1 << RASPI_D4;
+		ftdistate_dir |= 1 << RASPI_D3;
+		ftdistate_dir |= 1 << RASPI_D2;
+		ftdistate_dir |= 1 << RASPI_D1;
+		ftdistate_dir |= 1 << RASPI_D0;
+
+		std::vector<uint8_t> cmd;
+
+		cmd.push_back(0x80);
+		cmd.push_back(ftdistate_val);
+		cmd.push_back(ftdistate_dir);
+
+		cmd.push_back(0x82);
+		cmd.push_back(ftdistate_val >> 8);
+		cmd.push_back(ftdistate_dir >> 8);
+
+		my_ftdi_send(&ftdia, &cmd.front(), cmd.size());
+		current_send_recv_mode = 's';
+	}
+
+	if (verbose) {
+		last_recv_v = -1;
+		last_recv_rep = 0;
+		fprintf(stderr, "<%03x>", v);
+		fflush(stderr);
+	}
+
+	std::vector<uint8_t> cmd;
+
+	ftdistate_val &= ~(1 << RASPI_D8);
+	ftdistate_val &= ~(1 << RASPI_D7);
+	ftdistate_val &= ~(1 << RASPI_D6);
+	ftdistate_val &= ~(1 << RASPI_D5);
+	ftdistate_val &= ~(1 << RASPI_D4);
+	ftdistate_val &= ~(1 << RASPI_D3);
+	ftdistate_val &= ~(1 << RASPI_D2);
+	ftdistate_val &= ~(1 << RASPI_D1);
+	ftdistate_val &= ~(1 << RASPI_D0);
+
+	if ((v & 0x100) != 0) ftdistate_val |= 1 << RASPI_D8;
+	if ((v & 0x080) != 0) ftdistate_val |= 1 << RASPI_D7;
+	if ((v & 0x040) != 0) ftdistate_val |= 1 << RASPI_D6;
+	if ((v & 0x020) != 0) ftdistate_val |= 1 << RASPI_D5;
+	if ((v & 0x010) != 0) ftdistate_val |= 1 << RASPI_D4;
+	if ((v & 0x008) != 0) ftdistate_val |= 1 << RASPI_D3;
+	if ((v & 0x004) != 0) ftdistate_val |= 1 << RASPI_D2;
+	if ((v & 0x002) != 0) ftdistate_val |= 1 << RASPI_D1;
+	if ((v & 0x001) != 0) ftdistate_val |= 1 << RASPI_D0;
+
+	cmd.push_back(0x80);
+	cmd.push_back(ftdistate_val);
+	cmd.push_back(ftdistate_dir);
+
+	cmd.push_back(0x82);
+	cmd.push_back(ftdistate_val >> 8);
+	cmd.push_back(ftdistate_dir >> 8);
+
+	ftdistate_val |= 1 << RASPI_CLK;
+
+	cmd.push_back(0x80);
+	cmd.push_back(ftdistate_val);
+	cmd.push_back(ftdistate_dir);
+
+	cmd.push_back(0x82);
+	cmd.push_back(ftdistate_val >> 8);
+	cmd.push_back(ftdistate_dir >> 8);
+
+	ftdistate_val &= ~(1 << RASPI_CLK);
+
+	cmd.push_back(0x80);
+	cmd.push_back(ftdistate_val);
+	cmd.push_back(ftdistate_dir);
+
+	cmd.push_back(0x82);
+	cmd.push_back(ftdistate_val >> 8);
+	cmd.push_back(ftdistate_dir >> 8);
+
+	my_ftdi_send(&ftdia, &cmd.front(), cmd.size());
+#endif
 }
 
 int recv_word(int timeout = 0)
 {
+#ifndef USBMODE
 	if (current_send_recv_mode != 'r')
 	{
 		pinMode(RASPI_D8, INPUT);
@@ -735,6 +825,77 @@ int recv_word(int timeout = 0)
 	epsilon_sleep();
 	digitalWrite(RASPI_CLK, LOW);
 	epsilon_sleep();
+#else
+	if (current_send_recv_mode != 'r')
+	{
+		ftdistate_val &= ~(1 << RASPI_DIR);
+
+		ftdistate_dir &= ~(1 << RASPI_D8);
+		ftdistate_dir &= ~(1 << RASPI_D7);
+		ftdistate_dir &= ~(1 << RASPI_D6);
+		ftdistate_dir &= ~(1 << RASPI_D5);
+		ftdistate_dir &= ~(1 << RASPI_D4);
+		ftdistate_dir &= ~(1 << RASPI_D3);
+		ftdistate_dir &= ~(1 << RASPI_D2);
+		ftdistate_dir &= ~(1 << RASPI_D1);
+		ftdistate_dir &= ~(1 << RASPI_D0);
+
+		std::vector<uint8_t> cmd;
+
+		cmd.push_back(0x80);
+		cmd.push_back(ftdistate_val);
+		cmd.push_back(ftdistate_dir);
+
+		cmd.push_back(0x82);
+		cmd.push_back(ftdistate_val >> 8);
+		cmd.push_back(ftdistate_dir >> 8);
+
+		my_ftdi_send(&ftdia, &cmd.front(), cmd.size());
+		current_send_recv_mode = 'r';
+	}
+
+	std::vector<uint8_t> cmd;
+	uint8_t cmd_response[2];
+
+	cmd.push_back(0x81);
+	cmd.push_back(0x83);
+
+	ftdistate_val |= 1 << RASPI_CLK;
+
+	cmd.push_back(0x80);
+	cmd.push_back(ftdistate_val);
+	cmd.push_back(ftdistate_dir);
+
+	cmd.push_back(0x82);
+	cmd.push_back(ftdistate_val >> 8);
+	cmd.push_back(ftdistate_dir >> 8);
+
+	ftdistate_val &= ~(1 << RASPI_CLK);
+
+	cmd.push_back(0x80);
+	cmd.push_back(ftdistate_val);
+	cmd.push_back(ftdistate_dir);
+
+	cmd.push_back(0x82);
+	cmd.push_back(ftdistate_val >> 8);
+	cmd.push_back(ftdistate_dir >> 8);
+
+	my_ftdi_send(&ftdia, &cmd.front(), cmd.size());
+	my_ftdi_recv(&ftdia, cmd_response, 2);
+
+	int v = 0;
+	uint16_t pindata = (cmd_response[1] << 8) | cmd_response[0];
+
+	if ((pindata & (1 << RASPI_D8)) != 0 ) v |= 0x100;
+	if ((pindata & (1 << RASPI_D7)) != 0 ) v |= 0x080;
+	if ((pindata & (1 << RASPI_D6)) != 0 ) v |= 0x040;
+	if ((pindata & (1 << RASPI_D5)) != 0 ) v |= 0x020;
+	if ((pindata & (1 << RASPI_D4)) != 0 ) v |= 0x010;
+	if ((pindata & (1 << RASPI_D3)) != 0 ) v |= 0x008;
+	if ((pindata & (1 << RASPI_D2)) != 0 ) v |= 0x004;
+	if ((pindata & (1 << RASPI_D1)) != 0 ) v |= 0x002;
+	if ((pindata & (1 << RASPI_D0)) != 0 ) v |= 0x001;
+#endif
 
 	if (verbose)
 	{
