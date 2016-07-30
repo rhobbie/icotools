@@ -33,6 +33,11 @@
 #  define RASPI_DIR 28 // PIN 38, GPIO.28
 #  define RASPI_CLK 29 // PIN 40, GPIO.29
 
+void digitalSync(int usec_delay)
+{
+	usleep(usec_delay);
+}
+
 #else
 
 #  include <ftdi.h>
@@ -227,6 +232,37 @@ int digitalRead(int pin)
 	return my_ftdi_pinread(pin) ? HIGH : LOW;
 }
 
+void digitalSync(int usec_delay)
+{
+	uint8_t request = 0xAB;
+	uint8_t response_expected[2] = {0xFA, 0xAB};
+	uint8_t response_a[2], response_b[2];
+
+	my_ftdi_send(&ftdia, &request, 1);
+	my_ftdi_send(&ftdib, &request, 1);
+
+	my_ftdi_recv(&ftdia, response_a, 2);
+	my_ftdi_recv(&ftdib, response_b, 2);
+
+	if (memcmp(response_a, response_expected, 2) || memcmp(response_b, response_expected, 2)) {
+		fprintf(stderr, "Communication error.\n");
+		exit(1);
+	}
+
+	usleep(usec_delay);
+}
+
+#define PININFO(pin) pininfo(#pin, pin);
+
+void pininfo(const char *name, int pin)
+{
+	int dir = (ftdistate_dir >> pin) & 1;
+	int val = (ftdistate_val >> pin) & 1;
+	if (!dir) val = digitalRead(pin);
+
+	fprintf(stderr, "%-20s %d %s\n", name, val, dir ? "OUT" : "IN");
+}
+
 #endif /* USBMODE */
 
 bool verbose = false;
@@ -242,9 +278,9 @@ void fpga_reset()
 {
 	pinMode(RPI_ICE_CRESET,  OUTPUT);
 	digitalWrite(RPI_ICE_CRESET, LOW);
-	usleep(2000);
+	digitalSync(2000);
 	digitalWrite(RPI_ICE_CRESET, HIGH);
-	usleep(500000);
+	digitalSync(500000);
 	if (digitalRead(RPI_ICE_CDONE) != HIGH)
 		fprintf(stderr, "Warning: cdone is low\n");
 }
@@ -288,11 +324,11 @@ void prog_bitstream(bool reset_only = false)
 	digitalWrite(LOAD_FROM_FLASH, LOW);
 	digitalWrite(RPI_ICE_SELECT, LOW);
 	digitalWrite(RPI_ICE_CS, LOW);
-	usleep(100);
+	digitalSync(100);
 
 	// release reset
 	digitalWrite(RPI_ICE_CRESET, HIGH);
-	usleep(2000);
+	digitalSync(2000);
 
 	fprintf(stderr, "cdone: %s\n", digitalRead(RPI_ICE_CDONE) == HIGH ? "high" : "low");
 
@@ -345,10 +381,10 @@ void prog_bitstream(bool reset_only = false)
 		digitalWrite(RPI_ICE_CLK, HIGH);
 	}
 
-	usleep(2000);
+	digitalSync(2000);
 #if 0
 	for (int i = 2; i <= 512; i+=2) {
-		usleep(2000);
+		digitalSync(2000);
 		if (((i-1) & i) == 0)
 			fprintf(stderr, "cdone (after %3d ms): %s\n", i, digitalRead(RPI_ICE_CDONE) == HIGH ? "high" : "low");
 	}
@@ -471,7 +507,7 @@ int flash_wait()
 		if ((status & 0x01) == 0)
 			break;
 
-		usleep(1000);
+		digitalSync(1000);
 	}
 
 	return get_time_ms() - ms_start;
@@ -490,7 +526,7 @@ void prog_flashmem(int pageoffset)
 	digitalWrite(RPI_ICE_SELECT, HIGH);
 	digitalWrite(RPI_ICE_CS, HIGH);
 	digitalWrite(RPI_ICE_CLK, LOW);
-	usleep(100);
+	digitalSync(100);
 
 	// power_up
 	spi_begin();
@@ -581,7 +617,7 @@ void read_flashmem(int n)
 	digitalWrite(RPI_ICE_SELECT, HIGH);
 	digitalWrite(RPI_ICE_CS, HIGH);
 	digitalWrite(RPI_ICE_CLK, LOW);
-	usleep(100);
+	digitalSync(100);
 
 	// power_up
 	spi_begin();
@@ -906,7 +942,7 @@ void console_endpoint(int epnum, int trignum)
 				running = false;
 				if (send_zero)
 					send_word(ch);
-				usleep(10000);
+				digitalSync(10000);
 			} else {
 				wrcount++;
 				send_word(ch);
@@ -923,7 +959,7 @@ void console_endpoint(int epnum, int trignum)
 					wrcount = 0;
 				if (!running && stop_cnt < 10) {
 					stop_cnt++;
-					usleep(10000);
+					digitalSync(10000);
 					continue;
 				}
 				if (!running && recv_zero)
@@ -1214,6 +1250,33 @@ int main(int argc, char **argv)
 
 	if (verbose)
 		fprintf(stderr, "\n");
+
+#if 0
+#ifdef USBMODE
+	PININFO(RPI_ICE_CLK);
+	PININFO(RPI_ICE_CDONE);
+	PININFO(RPI_ICE_MOSI);
+	PININFO(RPI_ICE_MISO);
+	PININFO(LOAD_FROM_FLASH);
+
+	PININFO(RPI_ICE_CRESET);
+	PININFO(RPI_ICE_CS);
+	PININFO(RPI_ICE_SELECT);
+
+	PININFO(RASPI_D8);
+	PININFO(RASPI_D7);
+	PININFO(RASPI_D6);
+	PININFO(RASPI_D5);
+	PININFO(RASPI_D4);
+	PININFO(RASPI_D3);
+	PININFO(RASPI_D2);
+	PININFO(RASPI_D1);
+	PININFO(RASPI_D0);
+
+	PININFO(RASPI_DIR);
+	PININFO(RASPI_CLK);
+#endif
+#endif
 
 	return 0;
 }
