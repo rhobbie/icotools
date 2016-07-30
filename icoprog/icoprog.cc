@@ -612,8 +612,10 @@ void read_flashmem(int n)
 
 void epsilon_sleep()
 {
+#ifndef USBMODE
 	for (int i = 0; i < 1000; i++)
 		asm volatile ("");
+#endif
 }
 
 void send_word(int v)
@@ -976,6 +978,7 @@ void read_dbgvcd(int nbits)
 
 		if (waiting) {
 			fprintf(stderr, "Triggered.\n");
+			fprintf(stderr, "Downloading: ");
 			waiting = false;
 		}
 
@@ -986,6 +989,7 @@ void read_dbgvcd(int nbits)
 			printf("b%d n%d\n", (byte >> bit) & 1, 8*byte_cnt + bit);
 
 		if (++byte_cnt == nbytes) {
+			fprintf(stderr, ".");
 			byte_cnt = 0;
 			clock_cnt++;
 		}
@@ -993,7 +997,7 @@ void read_dbgvcd(int nbits)
 		timeout = 0;
 	}
 
-	fprintf(stderr, "Received %d cycles of debug data.\n", clock_cnt);
+	fprintf(stderr, "\nReceived %d cycles of debug data.\n", clock_cnt);
 	link_sync();
 }
 

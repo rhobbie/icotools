@@ -36,6 +36,47 @@ enable_muldiv_isa = False
 enable_flashmem = False
 enable_flashpmem = False
 
+debug_depth = 256
+debug_trigat = 0
+debug_mode = "FIRST_TRIGGER"
+
+debug_enable = "1"
+debug_trigger = "1"
+debug_wires = [
+    "resetn",
+    "cpu_trap",
+    "mem_wstrb[3]",
+    "mem_wstrb[2]",
+    "mem_wstrb[1]",
+    "mem_wstrb[0]",
+    "mem_valid",
+    "mem_ready",
+    "mem_instr",
+    "mem_addr[31]",
+    "mem_addr[30]",
+    "mem_addr[29]",
+    "mem_addr[28]",
+    "|mem_addr[31:18]",
+    "mem_addr[17]",
+    "mem_addr[16]",
+    "mem_addr[15]",
+    "mem_addr[14]",
+    "mem_addr[13]",
+    "mem_addr[12]",
+    "mem_addr[11]",
+    "mem_addr[10]",
+    "mem_addr[9]",
+    "mem_addr[8]",
+    "mem_addr[7]",
+    "mem_addr[6]",
+    "mem_addr[5]",
+    "mem_addr[4]",
+    "mem_addr[3]",
+    "mem_addr[2]",
+    "mem_addr[1]",
+    "mem_addr[0]"
+]
+
 board = ""
 used_board = False
 pmod_locs = [ ]
@@ -652,7 +693,7 @@ else:
 for vlog in modvlog:
     icosoc_ys["12-readvlog"].append("read_verilog -D ICOSOC %s" % (vlog))
 
-icosoc_v["60-debug"].append("""
+icosoc_v["90-debug"].append("""
     // -------------------------------
     // On-chip logic analyzer (send ep1, trig1)
 
@@ -662,10 +703,10 @@ icosoc_v["60-debug"].append("""
     wire [30:0] debug_data;
 
     icosoc_debugger #(
-        .WIDTH(31),
-        .DEPTH(256),
-        .TRIGAT(192),
-        .MODE("FREE_RUNNING")
+        .WIDTH(%d),
+        .DEPTH(%d),
+        .TRIGAT(%d),
+        .MODE("%s")
     ) debugger (
         .clk(clk),
         .resetn(resetn),
@@ -684,40 +725,15 @@ icosoc_v["60-debug"].append("""
     assign debug_enable = 1;
     assign debug_trigger = 1;
 
-    assign debug_data = {
-        cpu_trap,          // debug_30 -> cpu_trap
-        mem_wstrb[3],      // debug_29 -> mem_wstrb_3
-        mem_wstrb[2],      // debug_28 -> mem_wstrb_2
-        mem_wstrb[1],      // debug_27 -> mem_wstrb_1
-        mem_wstrb[0],      // debug_26 -> mem_wstrb_0
-        mem_valid,         // debug_25 -> mem_valid
-        mem_ready,         // debug_24 -> mem_ready
-        mem_instr,         // debug_23 -> mem_instr
-        mem_addr[31],      // debug_22 -> addr_31
-        mem_addr[30],      // debug_21 -> addr_30
-        mem_addr[29],      // debug_20 -> addr_29
-        mem_addr[28],      // debug_19 -> addr_28
-        |mem_addr[31:18],  // debug_18 -> addr_hi
-        mem_addr[17],      // debug_17 -> addr_17
-        mem_addr[16],      // debug_16 -> addr_16
-        mem_addr[15],      // debug_15 -> addr_15
-        mem_addr[14],      // debug_14 -> addr_14
-        mem_addr[13],      // debug_13 -> addr_13
-        mem_addr[12],      // debug_12 -> addr_12
-        mem_addr[11],      // debug_11 -> addr_11
-        mem_addr[10],      // debug_10 -> addr_10
-        mem_addr[9],       // debug_9  -> addr_9
-        mem_addr[8],       // debug_8  -> addr_8
-        mem_addr[7],       // debug_7  -> addr_7
-        mem_addr[6],       // debug_6  -> addr_6
-        mem_addr[5],       // debug_5  -> addr_5
-        mem_addr[4],       // debug_4  -> addr_4
-        mem_addr[3],       // debug_3  -> addr_3
-        mem_addr[2],       // debug_2  -> addr_2
-        mem_addr[1],       // debug_1  -> addr_1
-        mem_addr[0]        // debug_0  -> addr_0
-    };
-""")
+    assign debug_data = {""" % (len(debug_wires), debug_depth, debug_trigat, debug_mode))
+
+idx = len(debug_wires)-1
+for expr in debug_wires:
+    label = expr if re.match(r"^[a-zA-Z0-9_\.]+(\[[0-9]+\])?$", expr) else "debug_%d" % idx
+    icosoc_v["90-debug"].append("        %-20s // debug_%d -> %s" % (expr + ("," if idx != 0 else ""), idx, label))
+    idx -= 1
+
+icosoc_v["90-debug"].append("    };")
 
 if enable_flashmem:
     flashmem_condition = "((mem_addr & 32'hC000_0000) == 32'h4000_0000)"
@@ -1213,9 +1229,10 @@ icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'killall -9 icoprog || true'")
 icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'icoprog -c2'")
 icosoc_mk["10-top"].append("")
 icosoc_mk["10-top"].append("debug:")
+icosoc_mk["10-top"].append("\tgrep '// debug_.*->' icosoc.v")
 icosoc_mk["10-top"].append("\t$(SSH_RASPI) 'killall -9 icoprog || true'")
-icosoc_mk["10-top"].append("\tsedexpr=\"$$( grep '//.*debug_.*->' icosoc.v | sed 's,.*\(debug_\),s/\\1,; s, *-> *, /,; s, *$$, /;,;'; )\"; \\")
-icosoc_mk["10-top"].append("\t\t\t$(SSH_RASPI) 'icoprog -V31' | sed -e \"$$sedexpr\" > debug.vcd")
+icosoc_mk["10-top"].append("\tsedexpr=\"$$( grep '// debug_.*->' icosoc.v | sed 's,.*// \(debug_\),s/\\1,; s, *-> *, /,; s, *$$, /;,;'; )\"; \\")
+icosoc_mk["10-top"].append("\t\t\t$(SSH_RASPI) \"icoprog -V $$( grep '// debug_.*->' icosoc.v | wc -l; )\" | sed -e \"$$sedexpr\" > debug.vcd")
 
 icosoc_ys["10-readvlog"].append("read_verilog -D ICOSOC icosoc.v")
 icosoc_ys["10-readvlog"].append("read_verilog -D ICOSOC %s/common/picorv32.v" % basedir)
