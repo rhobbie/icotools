@@ -396,6 +396,11 @@ void prog_bitstream(bool reset_only = false)
 
 	fprintf(stderr, "programming..\n");
 
+	for (int i = 0; i < 8; i++) {
+		digitalWrite(RPI_ICE_CLK, LOW);
+		digitalWrite(RPI_ICE_CLK, HIGH);
+	}
+
 #ifndef USBMODE
 	while (1)
 	{
@@ -435,7 +440,7 @@ void prog_bitstream(bool reset_only = false)
 	}
 #endif
 
-	for (int i = 0; i < 49; i++) {
+	for (int i = 0; i < 128; i++) {
 		digitalWrite(RPI_ICE_CLK, LOW);
 		digitalWrite(RPI_ICE_CLK, HIGH);
 	}
