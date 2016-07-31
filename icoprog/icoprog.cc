@@ -63,7 +63,7 @@ void digitalSync(int usec_delay)
 #  define RPI_ICE_CDONE   22 // PIN 13
 #  define RPI_ICE_MOSI    17 // PIN 29
 #  define RPI_ICE_MISO    18 // PIN 31
-#  define LOAD_FROM_FLASH  8 // PIN 33
+#  define LOAD_FROM_FLASH 21 // PIN 33
 #  define RPI_ICE_CRESET  23 // PIN 37
 #  define RPI_ICE_CS      20 // PIN 24
 #  define RPI_ICE_SELECT  19 // PIN 32
@@ -88,6 +88,72 @@ void digitalSync(int usec_delay)
 
 struct ftdi_context ftdia, ftdib;
 uint32_t ftdistate_dir, ftdistate_val;
+
+#undef FTDI_VERBOSE
+
+void my_ftdi_send(struct ftdi_context *ftdi, uint8_t *buffer, int len)
+{
+#ifdef FTDI_VERBOSE
+	printf("ftdi-send>");
+	for (int i = 0; i < len; i++)
+		printf(" %02x", buffer[i]);
+	printf("\n");
+#endif
+
+	while (len > 0) {
+		int rc = ftdi_write_data(ftdi, buffer, len);
+		if (rc <= 0) {
+			fprintf(stderr, "Communication error. (ftdi write rc=%d, %s)\n", rc, ftdi_get_error_string(ftdi));
+			exit(1);
+		}
+		buffer += rc;
+		len -= rc;
+	}
+}
+
+void my_ftdi_recv(struct ftdi_context *ftdi, uint8_t *buffer, int len)
+{
+	int retry_cnt = 0;
+	int offset = 0;
+
+	while (offset < len)
+	{
+		int rc = ftdi_read_data(ftdi, buffer + offset, len - offset);
+
+		if (rc == 0)
+		{
+			if (++retry_cnt > 10)
+			{
+#ifdef FTDI_VERBOSE
+				printf("ftdi-partial-recv>");
+				for (int i = 0; i < offset; i++)
+					printf(" %02x", buffer[i]);
+				printf("\n");
+#endif
+				fprintf(stderr, "FTDI read timeout after %d / %d bytes.\n", offset, len);
+				exit(1);
+			}
+			fprintf(stderr, "FTDI read timeout, keep waiting..\n");
+			usleep(100000);
+			continue;
+		}
+
+		if (rc < 0) {
+			fprintf(stderr, "Communication error. (ftdi read rc=%d, %s)\n", rc, ftdi_get_error_string(ftdi));
+			exit(1);
+		}
+
+		retry_cnt = 0;
+		offset += rc;
+	}
+
+#ifdef FTDI_VERBOSE
+	printf("ftdi-recv>");
+	for (int i = 0; i < len; i++)
+		printf(" %02x", buffer[i]);
+	printf("\n");
+#endif
+}
 
 void my_ftdi_setup(struct ftdi_context *ftdi, enum ftdi_interface interface, const char *ifname)
 {
@@ -114,32 +180,23 @@ void my_ftdi_setup(struct ftdi_context *ftdi, enum ftdi_interface interface, con
 		fprintf(stderr, "Failed set BITMODE_MPSSE on IcoBoard USB baseboard (interface %s).\n", ifname);
 		exit(1);
 	}
-}
 
-void my_ftdi_send(struct ftdi_context *ftdi, uint8_t *buffer, int len)
-{
-	while (len > 0) {
-		int rc = ftdi_write_data(ftdi, buffer, len);
-		if (rc <= 0) {
-			fprintf(stderr, "Communication error.\n");
-			exit(1);
-		}
-		buffer += rc;
-		len -= rc;
-	}
-}
+	std::vector<uint8_t> cmd;
 
-void my_ftdi_recv(struct ftdi_context *ftdi, uint8_t *buffer, int len)
-{
-	while (len > 0) {
-		int rc = ftdi_read_data(ftdi, buffer, len);
-		if (rc <= 0) {
-			fprintf(stderr, "Communication error.\n");
-			exit(1);
-		}
-		buffer += rc;
-		len -= rc;
-	}
+	// enable clock prescale divide by 5
+	cmd.push_back(0x8b);
+
+	// 6 MHz = 0
+	// 1 MHz = 5
+	// 100 kHz = 59
+	// 10 kHz = 599
+	int clkdiv = 0;
+
+	cmd.push_back(0x86);
+	cmd.push_back(clkdiv & 255);
+	cmd.push_back(clkdiv >> 8);
+
+	my_ftdi_send(ftdi, &cmd.front(), cmd.size());
 }
 
 void my_ftdi_wr(int pin)
@@ -245,7 +302,7 @@ void digitalSync(int usec_delay)
 	my_ftdi_recv(&ftdib, response_b, 2);
 
 	if (memcmp(response_a, response_expected, 2) || memcmp(response_b, response_expected, 2)) {
-		fprintf(stderr, "Communication error.\n");
+		fprintf(stderr, "Communication error. (ftdi interface sync failed)\n");
 		exit(1);
 	}
 
