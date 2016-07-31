@@ -8,6 +8,9 @@
 #include <assert.h>
 #include <vector>
 
+bool verbose = false;
+bool ftdi_verbose = false;
+
 #ifndef USBMODE
 
 #  include <wiringPi.h>
@@ -89,21 +92,22 @@ void digitalSync(int usec_delay)
 struct ftdi_context ftdia, ftdib;
 uint32_t ftdistate_dir, ftdistate_val;
 
-#undef FTDI_VERBOSE
-
 void my_ftdi_send(struct ftdi_context *ftdi, uint8_t *buffer, int len)
 {
-#ifdef FTDI_VERBOSE
-	printf("ftdi-send>");
-	for (int i = 0; i < len; i++)
-		printf(" %02x", buffer[i]);
-	printf("\n");
-#endif
+	char interface = ftdi == &ftdia ? 'A' : ftdi == &ftdib ? 'B' : 'X';
+
+	if (ftdi_verbose) {
+		printf("ftdi-send-%c>", interface);
+		for (int i = 0; i < len; i++)
+			printf(" %02x", buffer[i]);
+		printf("\n");
+	}
 
 	while (len > 0) {
 		int rc = ftdi_write_data(ftdi, buffer, len);
 		if (rc <= 0) {
-			fprintf(stderr, "Communication error. (ftdi write rc=%d, %s)\n", rc, ftdi_get_error_string(ftdi));
+			fprintf(stderr, "Communication error. (ftdi interface %c write rc=%d, %s)\n",
+					interface, rc, ftdi_get_error_string(ftdi));
 			exit(1);
 		}
 		buffer += rc;
@@ -113,6 +117,8 @@ void my_ftdi_send(struct ftdi_context *ftdi, uint8_t *buffer, int len)
 
 void my_ftdi_recv(struct ftdi_context *ftdi, uint8_t *buffer, int len)
 {
+	char interface = ftdi == &ftdia ? 'A' : ftdi == &ftdib ? 'B' : 'X';
+
 	int retry_cnt = 0;
 	int offset = 0;
 
@@ -124,22 +130,25 @@ void my_ftdi_recv(struct ftdi_context *ftdi, uint8_t *buffer, int len)
 		{
 			if (++retry_cnt > 10)
 			{
-#ifdef FTDI_VERBOSE
-				printf("ftdi-partial-recv>");
-				for (int i = 0; i < offset; i++)
-					printf(" %02x", buffer[i]);
-				printf("\n");
-#endif
-				fprintf(stderr, "FTDI read timeout after %d / %d bytes.\n", offset, len);
+				if (ftdi_verbose) {
+					printf("ftdi-partial-recv-%c>", interface);
+					for (int i = 0; i < offset; i++)
+						printf(" %02x", buffer[i]);
+					printf("\n");
+				}
+				fprintf(stderr, "FTDI interface %c read timeout after %d / %d bytes.\n",
+						interface, offset, len);
 				exit(1);
 			}
-			fprintf(stderr, "FTDI read timeout, keep waiting..\n");
+			fprintf(stderr, "FTDI interface %c read timeout after %d / %d bytes, keep waiting..\n",
+					interface, offset, len);
 			usleep(100000);
 			continue;
 		}
 
 		if (rc < 0) {
-			fprintf(stderr, "Communication error. (ftdi read rc=%d, %s)\n", rc, ftdi_get_error_string(ftdi));
+			fprintf(stderr, "Communication error. (ftdi interface %c read rc=%d, %s)\n",
+					interface, rc, ftdi_get_error_string(ftdi));
 			exit(1);
 		}
 
@@ -147,12 +156,12 @@ void my_ftdi_recv(struct ftdi_context *ftdi, uint8_t *buffer, int len)
 		offset += rc;
 	}
 
-#ifdef FTDI_VERBOSE
-	printf("ftdi-recv>");
-	for (int i = 0; i < len; i++)
-		printf(" %02x", buffer[i]);
-	printf("\n");
-#endif
+	if (ftdi_verbose) {
+		printf("ftdi-recv-%c>", interface);
+		for (int i = 0; i < len; i++)
+			printf(" %02x", buffer[i]);
+		printf("\n");
+	}
 }
 
 void my_ftdi_setup(struct ftdi_context *ftdi, enum ftdi_interface interface, const char *ifname)
@@ -291,20 +300,14 @@ int digitalRead(int pin)
 
 void digitalSync(int usec_delay)
 {
-	uint8_t request = 0xAB;
-	uint8_t response_expected[2] = {0xFA, 0xAB};
-	uint8_t response_a[2], response_b[2];
+	uint8_t request = 0x81;
+	uint8_t response_a, response_b;
 
 	my_ftdi_send(&ftdia, &request, 1);
+	my_ftdi_recv(&ftdia, &response_a, 1);
+
 	my_ftdi_send(&ftdib, &request, 1);
-
-	my_ftdi_recv(&ftdia, response_a, 2);
-	my_ftdi_recv(&ftdib, response_b, 2);
-
-	if (memcmp(response_a, response_expected, 2) || memcmp(response_b, response_expected, 2)) {
-		fprintf(stderr, "Communication error. (ftdi interface sync failed)\n");
-		exit(1);
-	}
+	my_ftdi_recv(&ftdib, &response_b, 1);
 
 	usleep(usec_delay);
 }
@@ -322,7 +325,6 @@ void pininfo(const char *name, int pin)
 
 #endif /* USBMODE */
 
-bool verbose = false;
 bool send_zero = false;
 bool recv_zero = false;
 char current_send_recv_mode = 0;
@@ -423,8 +425,8 @@ void prog_bitstream(bool reset_only = false)
 		uint8_t *buffer = &data[sent_cnt];
 		int len = int(data.size()) - sent_cnt;
 
-		if (len > 64*1024)
-			len = 64*1024;
+		if (len > 1024)
+			len = 1024;
 
 		uint8_t cmd[4] = {0x11, uint8_t(len-1), uint8_t((len-1) >> 8)};
 		my_ftdi_send(&ftdib, cmd, 3);
@@ -1362,6 +1364,8 @@ int main(int argc, char **argv)
 			break;
 
 		case 'v':
+			if (verbose)
+				ftdi_verbose = true;
 			verbose = true;
 			break;
 
