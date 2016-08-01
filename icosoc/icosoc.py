@@ -42,40 +42,10 @@ debug_mode = "FIRST_TRIGGER"
 
 debug_enable = "1"
 debug_trigger = "1"
-debug_wires = [
-    "resetn",
-    "cpu_trap",
-    "mem_wstrb[3]",
-    "mem_wstrb[2]",
-    "mem_wstrb[1]",
-    "mem_wstrb[0]",
-    "mem_valid",
-    "mem_ready",
-    "mem_instr",
-    "mem_addr[31]",
-    "mem_addr[30]",
-    "mem_addr[29]",
-    "mem_addr[28]",
-    "|mem_addr[31:18]",
-    "mem_addr[17]",
-    "mem_addr[16]",
-    "mem_addr[15]",
-    "mem_addr[14]",
-    "mem_addr[13]",
-    "mem_addr[12]",
-    "mem_addr[11]",
-    "mem_addr[10]",
-    "mem_addr[9]",
-    "mem_addr[8]",
-    "mem_addr[7]",
-    "mem_addr[6]",
-    "mem_addr[5]",
-    "mem_addr[4]",
-    "mem_addr[3]",
-    "mem_addr[2]",
-    "mem_addr[1]",
-    "mem_addr[0]"
-]
+debug_signals = dict()
+debug_ports = dict()
+debug_code = list()
+debug_code_append = False
 
 board = ""
 used_board = False
@@ -150,12 +120,24 @@ def parse_cfg(f):
     global enable_muldiv_isa
     global enable_flashmem
     global enable_flashpmem
+    global debug_code_append
 
     current_mod_name = None
     cm = None
 
-    for line in f:
-        line = line.split()
+    for line_str in f:
+        line = line_str.split()
+
+        if debug_code_append:
+            if line == ["debug_code_end"]:
+                debug_code_append = False
+            else:
+                debug_code.append(line_str)
+            continue
+
+        if line == ["debug_code_begin"]:
+            debug_code_append = True
+            continue
 
         if "#" in line:
             line = line[0:line.index("#")]
@@ -193,6 +175,23 @@ def parse_cfg(f):
             assert current_mod_name is None
             enable_flashmem = True
             enable_flashpmem = True
+            continue
+
+        if line[0] == "debug_net":
+            assert len(line) == 2
+            debug_signals[line[1]] = line[1]
+            continue
+
+        if line[0] == "debug_expr":
+            assert len(line) == 4
+            assert int(line[2]) == 1
+            debug_signals[line[1]] = line[3]
+            continue
+
+        if line[0] == "debug_port":
+            assert len(line) == 3
+            make_pins(line[1])
+            debug_ports[line[1]] = line[2]
             continue
 
         if line[0] == "mod":
@@ -667,7 +666,7 @@ for m in mods.values():
                             mem_ready <= mod_%s_ctrl_done;
                             mod_%s_ctrl_wr <= mod_%s_ctrl_done ? 0 : mem_wstrb;
                         end
-        """ % (m["addr"], m["name"], m["name"], m["name"]))
+""" % (m["addr"], m["name"], m["name"], m["name"]))
 
         icosoc_v["75-bus-modread"].append("""
                         if (mem_addr[23:16] == %s) begin
@@ -675,7 +674,7 @@ for m in mods.values():
                             mod_%s_ctrl_rd <= !mod_%s_ctrl_done;
                             mem_rdata <= mod_%s_ctrl_rdat;
                         end
-        """ % (m["addr"], m["name"], m["name"], m["name"], m["name"]))
+""" % (m["addr"], m["name"], m["name"], m["name"], m["name"]))
 
     if os.path.isfile("%s/mod_%s/mod_%s.py" % (basedir, m["type"], m["type"])):
         mod_loaded = importlib.import_module("mod_%s.mod_%s" % (m["type"], m["type"]))
@@ -686,14 +685,27 @@ for m in mods.values():
 
 txt.append("");
 if len(irq_terms) > 0:
-    txt.append("assign cpu_irq = %s;" % " | ".join(["(" + t + ")" for t in irq_terms]))
+    txt.append("    assign cpu_irq = %s;" % " | ".join(["(" + t + ")" for t in irq_terms]))
 else:
-    txt.append("assign cpu_irq = 0;");
+    txt.append("    assign cpu_irq = 0;");
 
 for vlog in modvlog:
     icosoc_ys["12-readvlog"].append("read_verilog -D ICOSOC %s" % (vlog))
 
-icosoc_v["90-debug"].append("""
+if len(debug_code) or len(debug_ports):
+    icosoc_v["90-debug"].append("""
+    // -------------------------------
+    // Additional debug code
+""")
+
+    for line in debug_code:
+        icosoc_v["90-debug"].append(line)
+
+    for port, expr in debug_ports.items():
+        icosoc_v["90-debug"].append("    assign %s = %s;" % (port, expr))
+
+if len(debug_signals):
+    icosoc_v["90-debug"].append("""
     // -------------------------------
     // On-chip logic analyzer (send ep1, trig1)
 
@@ -725,15 +737,14 @@ icosoc_v["90-debug"].append("""
     assign debug_enable = 1;
     assign debug_trigger = 1;
 
-    assign debug_data = {""" % (len(debug_wires), debug_depth, debug_trigat, debug_mode))
+    assign debug_data = {""" % (len(debug_signals), debug_depth, debug_trigat, debug_mode))
 
-idx = len(debug_wires)-1
-for expr in debug_wires:
-    label = expr if re.match(r"^[a-zA-Z0-9_\.]+(\[[0-9]+\])?$", expr) else "debug_%d" % idx
-    icosoc_v["90-debug"].append("        %-20s // debug_%d -> %s" % (expr + ("," if idx != 0 else ""), idx, label))
-    idx -= 1
+    idx = len(debug_signals)-1
+    for label, expr in sorted(debug_signals.items(), key=(lambda item: re.sub(r"\d+", (lambda match: "%05d" % int(match.group(0))), item[0]))):
+        icosoc_v["90-debug"].append("        %-20s // debug_%d -> %s" % (expr + ("," if idx != 0 else ""), idx, label))
+        idx -= 1
 
-icosoc_v["90-debug"].append("    };")
+    icosoc_v["90-debug"].append("    };")
 
 if enable_flashmem:
     flashmem_condition = "((mem_addr & 32'hC000_0000) == 32'h4000_0000)"
