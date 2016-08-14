@@ -234,12 +234,21 @@ int main(int argc, char **argv)
 	pinMode(MACHXO2_TCK, OUTPUT);
 	pinMode(MACHXO2_TMS, OUTPUT);
 
+	printf("Scanning...\n");
 	if (libxsvf_play(&h, LIBXSVF_MODE_SCAN) < 0) {
 		fprintf(stderr, "Error while scanning JTAG chain.\n");
 		reset_inout();
 		return 1;
 	}
 
+	printf("Programming (reading SVF from stdin)...\n");
+	if (libxsvf_play(&h, LIBXSVF_MODE_SVF) < 0) {
+		fprintf(stderr, "Error while playing SVF file.\n");
+		reset_inout();
+		return 1;
+	}
+
+	printf("DONE.\n");
 	reset_inout();
 	return 0;
 }
