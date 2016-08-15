@@ -514,6 +514,13 @@ void flash_write_enable()
 	spi_end();
 }
 
+void flash_bulk_erase()
+{
+	spi_begin();
+	spi_xfer(0xc7);
+	spi_end();
+}
+
 void flash_erase_64kB(int addr)
 {
 	spi_begin();
@@ -580,6 +587,35 @@ int flash_wait()
 	}
 
 	return get_time_ms() - ms_start;
+}
+
+void prog_flasherase()
+{
+	pinMode(RPI_ICE_CLK,     OUTPUT);
+	pinMode(RPI_ICE_MOSI,    OUTPUT);
+	pinMode(LOAD_FROM_FLASH, OUTPUT);
+	pinMode(RPI_ICE_CS,      OUTPUT);
+	pinMode(RPI_ICE_SELECT,  OUTPUT);
+
+	// connect flash to Raspi
+	digitalWrite(LOAD_FROM_FLASH, LOW);
+	digitalWrite(RPI_ICE_SELECT, HIGH);
+	digitalWrite(RPI_ICE_CS, HIGH);
+	digitalWrite(RPI_ICE_CLK, LOW);
+	digitalSync(100);
+
+	// power_up
+	spi_begin();
+	spi_xfer(0xab);
+	spi_end();
+
+	flash_write_enable();
+	flash_bulk_erase();
+
+	// power_down
+	spi_begin();
+	spi_xfer(0xb9);
+	spi_end();
 }
 
 void prog_flashmem(int pageoffset)
@@ -1311,6 +1347,9 @@ void help(const char *progname)
 	fprintf(stderr, "Resetting FPGA (reload from flash):\n");
 	fprintf(stderr, "    %s -b\n", progname);
 	fprintf(stderr, "\n");
+	fprintf(stderr, "Bulk erase entire flash:\n");
+	fprintf(stderr, "    %s -E\n", progname);
+	fprintf(stderr, "\n");
 	fprintf(stderr, "Programming FPGA bit stream:\n");
 	fprintf(stderr, "    %s -p < data.bin\n", progname);
 	fprintf(stderr, "\n");
@@ -1355,7 +1394,7 @@ int main(int argc, char **argv)
 	int pageoffset = 0;
 	char mode = 0;
 
-	while ((opt = getopt(argc, argv, "RbpfF:TBw:r:c:vzZt:O:V:")) != -1)
+	while ((opt = getopt(argc, argv, "RbEpfF:TBw:r:c:vzZt:O:V:")) != -1)
 	{
 		switch (opt)
 		{
@@ -1367,6 +1406,7 @@ int main(int argc, char **argv)
 			n = atoi(optarg);
 			// fall through
 
+		case 'E':
 		case 'R':
 		case 'b':
 		case 'p':
@@ -1419,6 +1459,13 @@ int main(int argc, char **argv)
 		wiringPiSetup();
 		reset_inout();
 		fpga_reset();
+		reset_inout();
+	}
+
+	if (mode == 'E') {
+		wiringPiSetup();
+		reset_inout();
+		prog_flasherase();
 		reset_inout();
 	}
 
