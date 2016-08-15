@@ -56,7 +56,7 @@ static void console_puts(const char *s)
 
 static int console_getc_timeout()
 {
-	for (int i = 0; i < 1000000; i++) {
+	for (int i = 0; i < 5000000; i++) {
 		int c = *(volatile uint32_t*)0x30000000;
 		if (c >= 0) return c;
 	}
