@@ -18,11 +18,11 @@ endif
 example.blif: example.v
 	yosys -p 'synth_ice40 -blif example.blif' example.v
 
-example.txt: example.blif example.pcf
-	arachne-pnr -d 8k -p example.pcf -o example.txt example.blif
+example.asc: example.blif example.pcf
+	arachne-pnr -d 8k -p example.pcf -o example.asc example.blif
 
-example.bin: example.txt
-	icepack example.txt example.bin
+example.bin: example.asc
+	icepack example.asc example.bin
 
 example_sram: example.bin
 	$(SSH_RASPI) 'icoprog -p' < example.bin
@@ -43,7 +43,7 @@ uninstall:
 	sudo rm -f /usr/local/bin/icoprog
 
 clean:
-	rm -f icoprog example.blif example.txt example.bin
+	rm -f icoprog example.blif example.asc example.bin
 
 .PHONY: example_sram example_flash reset install clean
 
