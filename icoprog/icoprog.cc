@@ -1130,23 +1130,26 @@ void read_endpoint(int epnum, int trignum)
 void console_endpoint(int epnum, int trignum)
 {
 	struct termios oldkey_stdin, oldkey_stdout, newkey;
+	int is_tty = isatty(STDIN_FILENO);
 
 	link_sync(trignum);
 	send_word(0x100 + epnum);
 
-	tcgetattr(STDIN_FILENO, &oldkey_stdin);
-	tcgetattr(STDOUT_FILENO, &oldkey_stdout);
-	memset(&newkey, 0, sizeof(newkey));
-	newkey.c_cflag = B9600 | CS8 | CLOCAL | CREAD;
-	newkey.c_iflag = IGNPAR;
-	newkey.c_oflag = ONLCR;
-	newkey.c_lflag = 0;
-	newkey.c_cc[VMIN]=1;
-	newkey.c_cc[VTIME]=0;
-	tcflush(STDIN_FILENO, TCIFLUSH);
-	tcflush(STDOUT_FILENO, TCIFLUSH);
-	tcsetattr(STDIN_FILENO, TCSANOW, &newkey);
-	tcsetattr(STDOUT_FILENO, TCSANOW, &newkey);
+	if (is_tty) {
+		tcgetattr(STDIN_FILENO, &oldkey_stdin);
+		tcgetattr(STDOUT_FILENO, &oldkey_stdout);
+		memset(&newkey, 0, sizeof(newkey));
+		newkey.c_cflag = B9600 | CS8 | CLOCAL | CREAD;
+		newkey.c_iflag = IGNPAR;
+		newkey.c_oflag = ONLCR;
+		newkey.c_lflag = 0;
+		newkey.c_cc[VMIN]=1;
+		newkey.c_cc[VTIME]=0;
+		tcflush(STDIN_FILENO, TCIFLUSH);
+		tcflush(STDOUT_FILENO, TCIFLUSH);
+		tcsetattr(STDIN_FILENO, TCSANOW, &newkey);
+		tcsetattr(STDOUT_FILENO, TCSANOW, &newkey);
+	}
 
 	bool running = true;
 	int wrcount = 0;
@@ -1211,8 +1214,10 @@ void console_endpoint(int epnum, int trignum)
 		}
 	}
 
-	tcsetattr(STDIN_FILENO, TCSANOW, &oldkey_stdin);
-	tcsetattr(STDOUT_FILENO, TCSANOW, &oldkey_stdout);
+	if (is_tty) {
+		tcsetattr(STDIN_FILENO, TCSANOW, &oldkey_stdin);
+		tcsetattr(STDOUT_FILENO, TCSANOW, &oldkey_stdout);
+	}
 
 	link_sync();
 }
