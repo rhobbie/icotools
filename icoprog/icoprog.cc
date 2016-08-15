@@ -140,8 +140,9 @@ void my_ftdi_recv(struct ftdi_context *ftdi, uint8_t *buffer, int len)
 						interface, offset, len);
 				exit(1);
 			}
-			fprintf(stderr, "FTDI interface %c read timeout after %d / %d bytes, keep waiting..\n",
-					interface, offset, len);
+			if (retry_cnt > 1)
+				fprintf(stderr, "FTDI interface %c read timeout after %d / %d bytes, keep waiting..\n",
+						interface, offset, len);
 			usleep(100000);
 			continue;
 		}
@@ -413,6 +414,11 @@ void prog_bitstream(bool reset_only = false)
 			digitalWrite(RPI_ICE_CLK, HIGH);
 		}
 	}
+
+	for (int i = 0; i < 49; i++) {
+		digitalWrite(RPI_ICE_CLK, LOW);
+		digitalWrite(RPI_ICE_CLK, HIGH);
+	}
 #else
 	std::vector<uint8_t> data;
 	int sent_cnt = 0;
@@ -438,12 +444,11 @@ void prog_bitstream(bool reset_only = false)
 		my_ftdi_send(&ftdib, buffer, len);
 		sent_cnt += len;
 	}
-#endif
 
-	for (int i = 0; i < 128; i++) {
-		digitalWrite(RPI_ICE_CLK, LOW);
-		digitalWrite(RPI_ICE_CLK, HIGH);
-	}
+	// send 49 additional dummy bits
+	uint8_t cmd[5] = {0x8f, 0x05, 0x00, 0x8e, 0x00};
+	my_ftdi_send(&ftdib, cmd, 5);
+#endif
 
 	digitalSync(2000);
 #if 0
