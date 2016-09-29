@@ -114,6 +114,12 @@ This implies the "flashmem" option. In addition to the mapping at 0x40000000
 this will map everything above 0x100000 (1MB) in the flash to 0x100000 in
 the processor address space.
 
+noflashboot
+-----------
+
+Do not attempt to load application from flash after timeout. Set when
+connecting via SSH (e.g. from "make run") may take longer than the timeout.
+
 
 IcoSoC Module Sections
 ======================
