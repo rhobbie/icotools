@@ -6,6 +6,9 @@ int main()
 {
 	icosoc_ledstrip_dir(0xffff);
 
+	// generate a 38 kHz signal with pwm0
+	icosoc_pwm0_setmaxcnt(ICOSOC_CLOCK_FREQ_HZ / 38000);
+
 	for (uint8_t i = 0;; i++)
 	{
 		icosoc_leds(i);
@@ -21,6 +24,14 @@ int main()
 
 		for (int i = 0; i < 100000; i++)
 			asm volatile ("");
+
+		if (i % 2) {
+			// enable pwm0 (50:50 duty cycle)
+			icosoc_pwm0_setoffcnt(icosoc_pwm0_getmaxcnt() / 2);
+		} else {
+			// disable pwm0
+			icosoc_pwm0_setoffcnt(0);
+		}
 	}
 }
 

@@ -105,6 +105,9 @@ def make_pins(pname):
         return make_pins(pname + "_10") + make_pins(pname + "_9") + make_pins(pname + "_8") + make_pins(pname + "_7") + \
                make_pins(pname + "_4") + make_pins(pname + "_3") + make_pins(pname + "_2") + make_pins(pname + "_1")
 
+    if re.match(r"^[A-Z][0-9][0-9]?$", pname):
+        ploc = pname
+
     assert ploc is not None
     assert ploc not in used_plocs
     used_plocs.add(ploc)
