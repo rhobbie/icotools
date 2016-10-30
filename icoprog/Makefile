@@ -22,6 +22,7 @@ example.asc: example.blif example.pcf
 	arachne-pnr -d 8k -p example.pcf -o example.asc example.blif
 
 example.bin: example.asc
+	icetime -d hx8k -c 100 example.asc
 	icepack example.asc example.bin
 
 example_sram: example.bin

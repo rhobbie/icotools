@@ -53,3 +53,20 @@ Next we install IcoProg itself:
 	git clone https://github.com/cliffordwolf/icotools.git
 	cd icotools/icoprog && make install
 
+
+Next Steps
+==========
+
+See http://www.clifford.at/icestorm/#install for instructions on
+installing the FOSS iCE40 toolchain. You can install it on any Linux
+PC, or directly on the raspberry pi.
+
+Running `make example_sram` in this directory will build a trivial example
+and upload it to the IcoBoard. On a PC it will expect the raspberry pi to be
+reachable with "ssh pi@raspi" without password authentication (i.e.
+authentication using SSH keys).
+
+See https://github.com/cliffordwolf/icotools/tree/master/icosoc for a
+much larger example application. (A complete SoC built around the
+PicoRV32 RISC-V CPU.)
+
