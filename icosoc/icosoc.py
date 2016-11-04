@@ -757,6 +757,15 @@ if len(debug_signals):
 
     icosoc_v["90-debug"].append("    };")
 
+else: # no debug signals
+    icosoc_v["90-debug"].append("""
+    // -------------------------------
+    // On-chip logic analyzer (send ep1, trig1), disabled
+
+    assign send_ep1_valid = 0;
+    assign send_ep1_data = 'bx;
+""");
+
 if enable_flashmem:
     flashmem_condition = "((mem_addr & 32'hC000_0000) == 32'h4000_0000)"
     if enable_flashpmem:
