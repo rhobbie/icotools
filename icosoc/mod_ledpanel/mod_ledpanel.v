@@ -40,14 +40,15 @@ module icosoc_mod_ledpanel (
 	output reg panel_r0, panel_g0, panel_b0, panel_r1, panel_g1, panel_b1,
 	output reg panel_a, panel_b, panel_c, panel_d, panel_clk, panel_stb, panel_oe
 );
+	parameter integer BITS_PER_CHANNEL = 4;
 	parameter integer CLOCK_FREQ_HZ = 6000000;
 	parameter integer SIZE = 1;
 
 	localparam integer SIZE_BITS = $clog2(SIZE);
 
-	reg [3:0] video_mem_r [0:SIZE*1024-1];
-	reg [3:0] video_mem_g [0:SIZE*1024-1];
-	reg [3:0] video_mem_b [0:SIZE*1024-1];
+	reg [BITS_PER_CHANNEL-1:0] video_mem_r [0:SIZE*1024-1];
+	reg [BITS_PER_CHANNEL-1:0] video_mem_g [0:SIZE*1024-1];
+	reg [BITS_PER_CHANNEL-1:0] video_mem_b [0:SIZE*1024-1];
 
 `ifdef TESTBENCH
 	initial begin:video_mem_init
@@ -65,9 +66,9 @@ module icosoc_mod_ledpanel (
 		ctrl_rdat <= 'bx;
 
 		if (ctrl_wr && ctrl_done) begin
-			video_mem_r[ctrl_addr >> 2] <= ctrl_wdat[23:16] >> 4;
-			video_mem_g[ctrl_addr >> 2] <= ctrl_wdat[15: 8] >> 4;
-			video_mem_b[ctrl_addr >> 2] <= ctrl_wdat[ 7: 0] >> 4;
+			video_mem_r[ctrl_addr >> 2] <= ctrl_wdat[23:16] >> (8-BITS_PER_CHANNEL);
+			video_mem_g[ctrl_addr >> 2] <= ctrl_wdat[15: 8] >> (8-BITS_PER_CHANNEL);
+			video_mem_b[ctrl_addr >> 2] <= ctrl_wdat[ 7: 0] >> (8-BITS_PER_CHANNEL);
 		end
 	end
 
@@ -98,8 +99,10 @@ module icosoc_mod_ledpanel (
 			if (cnt_x > max_cnt_x) begin
 				cnt_x <= 0;
 				cnt_z <= cnt_z + 1;
-				if (&cnt_z)
+				if (cnt_z == BITS_PER_CHANNEL-1) begin
 					cnt_y <= cnt_y + 1;
+					cnt_z <= 0;
+				end
 			end else begin
 				cnt_x <= cnt_x + 1;
 			end
