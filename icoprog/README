@@ -11,8 +11,8 @@ http://icoboard.org/
 http://www.clifford.at/icestorm/
 
 
-Installing
-==========
+Installing (Raspberry PI)
+=========================
 
 Start by installing a RASPBIAN JESSIE image on an SD-card. Follow the
 installation guide on the Raspberry PI web page:
@@ -52,6 +52,18 @@ Next we install IcoProg itself:
 	cd $HOME
 	git clone https://github.com/cliffordwolf/icotools.git
 	cd icotools/icoprog && make install
+
+
+Installing (USB Base Board)
+===========================
+
+The icoUSBaseboard is an alternative carrier board for the IcoBoard which allows
+programming the IcoBoard directly via USB from a Linux PC. Build IcoProg on the
+Linux PC with the make parameter `USBMODE=1` for this hardware setup:
+
+	cd $HOME
+	git clone https://github.com/cliffordwolf/icotools.git
+	cd icotools/icoprog && make USBMODE=1 install
 
 
 Next Steps
