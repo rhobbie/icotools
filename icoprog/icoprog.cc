@@ -11,6 +11,9 @@
 bool verbose = false;
 bool ftdi_verbose = false;
 
+bool enable_prog_port = false;
+bool enable_data_port = false;
+
 #ifndef USBMODE
 
 #  include <wiringPi.h>
@@ -365,6 +368,8 @@ int get_time_ms()
 
 void prog_bitstream(bool reset_only = false)
 {
+	assert(enable_prog_port);
+
 	pinMode(RPI_ICE_CLK,     OUTPUT);
 	pinMode(RPI_ICE_MOSI,    OUTPUT);
 	pinMode(LOAD_FROM_FLASH, OUTPUT);
@@ -476,6 +481,8 @@ void spi_end()
 
 uint32_t spi_xfer(uint32_t data, int nbits = 8)
 {
+	assert(enable_prog_port);
+
 #ifndef USBMODE
 	uint32_t rdata = 0;
 
@@ -591,6 +598,8 @@ int flash_wait()
 
 void prog_flasherase()
 {
+	assert(enable_prog_port);
+
 	pinMode(RPI_ICE_CLK,     OUTPUT);
 	pinMode(RPI_ICE_MOSI,    OUTPUT);
 	pinMode(LOAD_FROM_FLASH, OUTPUT);
@@ -620,6 +629,8 @@ void prog_flasherase()
 
 void prog_flashmem(int pageoffset)
 {
+	assert(enable_prog_port);
+
 	pinMode(RPI_ICE_CLK,     OUTPUT);
 	pinMode(RPI_ICE_MOSI,    OUTPUT);
 	pinMode(LOAD_FROM_FLASH, OUTPUT);
@@ -711,6 +722,8 @@ void prog_flashmem(int pageoffset)
 
 void read_flashmem(int n)
 {
+	assert(enable_prog_port);
+
 	pinMode(RPI_ICE_CLK,     OUTPUT);
 	pinMode(RPI_ICE_MOSI,    OUTPUT);
 	pinMode(LOAD_FROM_FLASH, OUTPUT);
@@ -761,6 +774,7 @@ void epsilon_sleep()
 
 void send_word(int v)
 {
+	assert(enable_data_port);
 #ifndef USBMODE
 	if (current_send_recv_mode != 's')
 	{
@@ -894,6 +908,7 @@ void send_word(int v)
 
 int recv_word(int timeout = 0)
 {
+	assert(enable_data_port);
 #ifndef USBMODE
 	if (current_send_recv_mode != 'r')
 	{
@@ -1310,32 +1325,38 @@ void read_dbgvcd(int nbits)
 
 void reset_inout()
 {
-	pinMode(RPI_ICE_CLK,     INPUT);
-	pinMode(RPI_ICE_CDONE,   INPUT);
-	pinMode(RPI_ICE_MOSI,    INPUT);
-	pinMode(RPI_ICE_MISO,    INPUT);
-	pinMode(LOAD_FROM_FLASH, INPUT);
-	pinMode(RPI_ICE_CRESET,  INPUT);
-	pinMode(RPI_ICE_CS,      INPUT);
-	pinMode(RPI_ICE_SELECT,  INPUT);
+	if (enable_prog_port)
+	{
+		pinMode(RPI_ICE_CLK,     INPUT);
+		pinMode(RPI_ICE_CDONE,   INPUT);
+		pinMode(RPI_ICE_MOSI,    INPUT);
+		pinMode(RPI_ICE_MISO,    INPUT);
+		pinMode(LOAD_FROM_FLASH, INPUT);
+		pinMode(RPI_ICE_CRESET,  INPUT);
+		pinMode(RPI_ICE_CS,      INPUT);
+		pinMode(RPI_ICE_SELECT,  INPUT);
+	}
 
-	pinMode(RASPI_D8, INPUT);
-	pinMode(RASPI_D7, INPUT);
-	pinMode(RASPI_D6, INPUT);
-	pinMode(RASPI_D5, INPUT);
-	pinMode(RASPI_D4, INPUT);
-	pinMode(RASPI_D3, INPUT);
-	pinMode(RASPI_D2, INPUT);
-	pinMode(RASPI_D1, INPUT);
-	pinMode(RASPI_D0, INPUT);
+	if (enable_data_port)
+	{
+		pinMode(RASPI_D8, INPUT);
+		pinMode(RASPI_D7, INPUT);
+		pinMode(RASPI_D6, INPUT);
+		pinMode(RASPI_D5, INPUT);
+		pinMode(RASPI_D4, INPUT);
+		pinMode(RASPI_D3, INPUT);
+		pinMode(RASPI_D2, INPUT);
+		pinMode(RASPI_D1, INPUT);
+		pinMode(RASPI_D0, INPUT);
 
-	pinMode(RASPI_DIR, OUTPUT);
-	pinMode(RASPI_CLK, OUTPUT);
+		pinMode(RASPI_DIR, OUTPUT);
+		pinMode(RASPI_CLK, OUTPUT);
 
-	digitalWrite(RASPI_DIR, LOW);
-	digitalWrite(RASPI_CLK, LOW);
+		digitalWrite(RASPI_DIR, LOW);
+		digitalWrite(RASPI_CLK, LOW);
 
-	current_send_recv_mode = 0;
+		current_send_recv_mode = 0;
+	}
 }
 
 void help(const char *progname)
@@ -1449,6 +1470,7 @@ int main(int argc, char **argv)
 		help(argv[0]);
 
 	if (mode == 'R') {
+		enable_prog_port = true;
 		wiringPiSetup();
 		reset_inout();
 		prog_bitstream(true);
@@ -1456,6 +1478,7 @@ int main(int argc, char **argv)
 	}
 
 	if (mode == 'b') {
+		enable_prog_port = true;
 		wiringPiSetup();
 		reset_inout();
 		fpga_reset();
@@ -1463,6 +1486,7 @@ int main(int argc, char **argv)
 	}
 
 	if (mode == 'E') {
+		enable_prog_port = true;
 		wiringPiSetup();
 		reset_inout();
 		prog_flasherase();
@@ -1470,6 +1494,7 @@ int main(int argc, char **argv)
 	}
 
 	if (mode == 'p') {
+		enable_prog_port = true;
 		wiringPiSetup();
 		reset_inout();
 		prog_bitstream();
@@ -1477,6 +1502,7 @@ int main(int argc, char **argv)
 	}
 
 	if (mode == 'f') {
+		enable_prog_port = true;
 		wiringPiSetup();
 		reset_inout();
 		prog_flashmem(pageoffset);
@@ -1484,6 +1510,7 @@ int main(int argc, char **argv)
 	}
 
 	if (mode == 'F') {
+		enable_prog_port = true;
 		wiringPiSetup();
 		reset_inout();
 		read_flashmem(n);
@@ -1491,6 +1518,7 @@ int main(int argc, char **argv)
 	}
 
 	if (mode == 'T') {
+		enable_data_port = true;
 		wiringPiSetup();
 		reset_inout();
 		test_link();
@@ -1498,6 +1526,7 @@ int main(int argc, char **argv)
 	}
 
 	if (mode == 'B') {
+		enable_data_port = true;
 		wiringPiSetup();
 		reset_inout();
 		test_bw();
@@ -1505,6 +1534,7 @@ int main(int argc, char **argv)
 	}
 
 	if (mode == 'w') {
+		enable_data_port = true;
 		wiringPiSetup();
 		reset_inout();
 		write_endpoint(n, t);
@@ -1512,6 +1542,7 @@ int main(int argc, char **argv)
 	}
 
 	if (mode == 'r') {
+		enable_data_port = true;
 		wiringPiSetup();
 		reset_inout();
 		read_endpoint(n, t);
@@ -1519,6 +1550,7 @@ int main(int argc, char **argv)
 	}
 
 	if (mode == 'c') {
+		enable_data_port = true;
 		wiringPiSetup();
 		reset_inout();
 		console_endpoint(n, t);
@@ -1526,6 +1558,7 @@ int main(int argc, char **argv)
 	}
 
 	if (mode == 'V') {
+		enable_data_port = true;
 		wiringPiSetup();
 		reset_inout();
 		read_dbgvcd(n);
