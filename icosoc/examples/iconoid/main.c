@@ -1,13 +1,15 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include "icosoc.h"
 
 #undef DISPLAY_FLIP_X
 #undef DISPLAY_FLIP_Y
 #define DISPLAY_SWAP_XY
 
-#define MIN_WEIGHT 10000
+#define MIN_WEIGHT 20000
+#define SUB_WEIGHT  1500
 
 #define SCALE_B_CSN  0x80
 #define SCALE_B_DIN  0x40
@@ -171,17 +173,19 @@ void game()
 		block_map[bx][by] = (xorshift32() % (1 + sizeof(block_colors)/sizeof(*block_colors)));
 
 		if (block_map[bx][by] != 0)
-			draw_block(bx, by, block_colors[block_map[bx][by]]);
+			draw_block(bx, by, block_colors[block_map[bx][by] - 1]);
 	}
 
 	int x = 3, y = 3*32-10;
 	int dx = 1, dy = -1;
-	int paddle = 0;
+	int paddle = 3*32/2-4;
 
 	while (1)
 	{
 		while (!scales_ready()) { /* wait */ }
 		scales_read();
+
+		// printf("%8d %8d\n", scale_a - scale_init_a, scale_b - scale_init_b);
 
 		bool bounce_x = false, bounce_y = false;
 
@@ -245,8 +249,8 @@ void game()
 		draw_ball(x, y, COLOR_BLACK);
 		draw_paddle(paddle, COLOR_BLACK);
 
-		int weight_a = scale_a - scale_init_a;
-		int weight_b = scale_b - scale_init_b;
+		int weight_a = scale_a - scale_init_a - SUB_WEIGHT;
+		int weight_b = scale_b - scale_init_b - SUB_WEIGHT;
 
 		if (weight_a < 0) weight_a = 0;
 		if (weight_b < 0) weight_b = 0;
@@ -257,25 +261,35 @@ void game()
 			if (paddle < 0) paddle = 0;
 			if (paddle+8 > 3*32) paddle = 3*32-8;
 		}
-		else if (dy > 0)
+		else if (dy > 0 && y < 3*32-8)
 		{
-			if (paddle > 0 && x+2 <= paddle)
+			int distance = (3*32-6) - y;
+			int final_x = x + distance*dx;
+
+			while (final_x < 0 || final_x >= 3*32) {
+				if (final_x < 0)
+					final_x = -final_x;
+				else
+					final_x = 2*3*32 - final_x;
+			}
+
+			if (paddle+2 > final_x)
 				paddle -= xorshift32() % 2 ? 2 : 3;
 
-			if (paddle+8 < 3*32 && x >= paddle+6)
+			if (paddle+2 < final_x)
 				paddle += xorshift32() % 2 ? 2 : 3;
 		}
 
 		if (dy > 0 && (y == 3*32-6 || y == 3*32-5 || y == 3*32-4))
 		{
-			if (paddle-4 < x && x < paddle+2)
-				dx = -1;
+			int w = y - (3*32-7);
+			int delta = x - paddle;
 
-			if (paddle+6 < x && x < paddle+12)
-				dx = +1;
-
-			if (paddle-4 < x && x < paddle+12)
+			if (0 <= delta+w && delta-w < 5) {
+				if (w > 1)
+					dx = delta < 0 ? -1 : +1;
 				bounce_y = true;
+			}
 		}
 
 		if (bounce_x) dx = -dx;
