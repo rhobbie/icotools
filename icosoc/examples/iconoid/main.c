@@ -1,6 +1,13 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include "icosoc.h"
+
+#undef DISPLAY_FLIP_X
+#undef DISPLAY_FLIP_Y
+#define DISPLAY_SWAP_XY
+
+#define MIN_WEIGHT 10000
 
 #define SCALE_B_CSN  0x80
 #define SCALE_B_DIN  0x40
@@ -12,9 +19,8 @@
 #define SCALE_A_DOUT 0x02
 #define SCALE_A_SCLK 0x01
 
-int scale_a = 0, scale_b = 0;
-int scale_a_min = 0xffffff;
-int scale_b_min = 0xffffff;
+int scale_a, scale_b;
+int scale_init_a, scale_init_b;
 
 void scales_init()
 {
@@ -46,47 +52,282 @@ void scales_read()
 	}
 }
 
-int main()
+#define COLOR_BLACK   0x000000
+#define COLOR_RED     0xff0000
+#define COLOR_GREEN   0x00ff00
+#define COLOR_BLUE    0x0000ff
+#define COLOR_YELLOW  0xffff00
+#define COLOR_CYAN    0x00ffff
+#define COLOR_MAGENTA 0xff00ff
+#define COLOR_WHITE   0xffffff
+
+uint32_t block_colors[] = {
+	COLOR_RED, COLOR_GREEN, COLOR_BLUE, COLOR_YELLOW, COLOR_CYAN, COLOR_MAGENTA
+};
+
+int block_map[12][12];
+
+void setpixel(int x, int y, uint32_t color)
 {
-	scales_init();
+	if (x < 0 || x >= 3*32) return;
+	if (y < 0 || y >= 3*32) return;
 
-	for (int i = 0; i < 9; i++)
-	for (int x = 0; x < 32; x++)
-	for (int y = 0; y < 32; y++)
-		icosoc_panel_setpixel(x + 32*i, y, i%3 == 0 ? 255 : 0,
-				i%3 == 1 ? 255 : 0, i%3 == 2 ? 255 : 0);
+#ifdef DISPLAY_FLIP_X
+	x = 3*32-1-x;
+#endif
 
-	for (int i = 0;; i++)
+#ifdef DISPLAY_FLIP_Y
+	y = 3*32-1-y;
+#endif
+
+#ifdef DISPLAY_SWAP_XY
+	int t = x;
+	x = y, y = t;
+#endif
+
+	int px = x / 32;
+	int py = y / 32;
+
+	x = x % 32;
+	y = 31 - (y % 32);
+	x = x + 32*(px + 3*py);
+
+	*(uint32_t*)(0x20000000 + 1 * 0x10000 + 4*(32*x + y)) = color;
+}
+
+void draw_ball(int x, int y, uint32_t color)
+{
+	for (int cx = 0; cx < 4; cx++)
+	for (int cy = 0; cy < 4; cy++)
+		if ((cx != 0 && cx != 3) || (cy != 0 && cy != 3))
+			setpixel(x+cx, y+cy, color);
+}
+
+void draw_block(int x, int y, uint32_t color)
+{
+	for (int cx = 8*x; cx < 8*(x+1); cx++)
+	for (int cy = 4*y; cy < 4*(y+1); cy++)
+		setpixel(cx, cy, color);
+
+	// setpixel(8*x+0, 4*y+0, COLOR_BLACK);
+	// setpixel(8*x+7, 4*y+0, COLOR_BLACK);
+	// setpixel(8*x+0, 4*y+3, COLOR_BLACK);
+	// setpixel(8*x+7, 4*y+3, COLOR_BLACK);
+}
+
+bool erase_block_group(int x, int y, int refcolor)
+{
+	if (x < 0 || x >= 12 || y < 0 || y >= 12)
+		return false;
+
+	if (block_map[x][y] == 0)
+		return false;
+
+	if (refcolor == 0)
+		refcolor = block_map[x][y];
+
+	if (refcolor != block_map[x][y])
+		return false;
+
+	draw_block(x, y, COLOR_BLACK);
+	block_map[x][y] = 0;
+
+	erase_block_group(x-1, y, refcolor);
+	erase_block_group(x+1, y, refcolor);
+
+	erase_block_group(x, y-1, refcolor);
+	erase_block_group(x, y+1, refcolor);
+
+	return true;
+}
+
+void draw_paddle(int x, uint32_t color)
+{
+	for (int cx = x+1; cx < x+7; cx++)
+		setpixel(cx, 3*32-2, color);
+
+	for (int cx = x; cx < x+8; cx++)
+		setpixel(cx, 3*32-1, color);
+}
+
+uint32_t xorshift32()
+{
+	static uint32_t x32 = 314159265;
+	x32 ^= x32 << 13;
+	x32 ^= x32 >> 17;
+	x32 ^= x32 << 5;
+	return x32;
+}
+
+void game()
+{
+	for (int y = 0; y < 3*32; y++)
+	for (int x = 0; x < 3*32; x++)
+		setpixel(x, y, COLOR_BLACK);
+
+	for (int by = 0; by < 12; by++)
+	for (int bx = 0; bx < 12; bx++)
+	{
+		block_map[bx][by] = (xorshift32() % (1 + sizeof(block_colors)/sizeof(*block_colors)));
+
+		if (block_map[bx][by] != 0)
+			draw_block(bx, by, block_colors[block_map[bx][by]]);
+	}
+
+	int x = 3, y = 3*32-10;
+	int dx = 1, dy = -1;
+	int paddle = 0;
+
+	while (1)
 	{
 		while (!scales_ready()) { /* wait */ }
 		scales_read();
 
-		if (scale_a < scale_a_min)
-			scale_a_min = scale_a;
+		bool bounce_x = false, bounce_y = false;
 
-		if (scale_b < scale_b_min)
-			scale_b_min = scale_b;
+		if (x == 0 && dx < 0) bounce_x = true;
+		if (y == 0 && dy < 0) bounce_y = true;
 
-		int a = scale_a - scale_a_min;
-		int b = scale_b - scale_b_min;
-		int p = (34 * a) / (a+b+1) - 2;
+		if (x+4 == 3*32 && dx > 0) bounce_x = true;
+		// if (y+4 == 3*32 && dy > 0) bounce_y = true;
 
-		if (p < 0) p = 0;
-		if (p > 31) p = 15;
+		if (y > 3*32 + 8)
+			return;
 
-		for (int y = 0; y < 32; y++)
-		for (int x = 0; x < 9*32; x += 32)
-			if (y == p)
-				icosoc_panel_setpixel(x, y, 255, 255, 255);
-			else
-				icosoc_panel_setpixel(x, y, 0, 0, 0);
+		if (dy < 0 && y > 0 && y%4 == 0)
+		{
+			int by = (y / 4) - 1;
+			int bx1 = x / 8;
+			int bx2 = (x+3) / 8;
 
-		if (i % 32 == 0) {
-			printf("---------------\n");
-			printf("Scale A: %06x (min=%06x)\n", scale_a, scale_a_min);
-			printf("Scale B: %06x (min=%06x)\n", scale_b, scale_b_min);
-			printf("Position: %d\n", p);
+			if (erase_block_group(bx1, by, 0))
+				bounce_y = true;
+			if (erase_block_group(bx2, by, 0))
+				bounce_y = true;
 		}
+
+		if (dy > 0 && y+4 < 3*32 && y%4 == 0)
+		{
+			int by = (y / 4) + 1;
+			int bx1 = x / 8;
+			int bx2 = (x+3) / 8;
+
+			if (erase_block_group(bx1, by, 0))
+				bounce_y = true;
+			if (erase_block_group(bx2, by, 0))
+				bounce_y = true;
+		}
+
+		if (dx < 0 && x > 0 && x%8 == 0)
+		{
+			int bx = (x / 8) - 1;
+			int by1 = y / 4;
+			int by2 = (y+3) / 4;
+
+			if (erase_block_group(bx, by1, 0))
+				bounce_x = true;
+			if (erase_block_group(bx, by2, 0))
+				bounce_x = true;
+		}
+
+		if (dx > 0 && x+4 < 3*32 && x%8 == 4)
+		{
+			int bx = (x / 8) + 1;
+			int by1 = y / 4;
+			int by2 = (y+3) / 4;
+
+			if (erase_block_group(bx, by1, 0))
+				bounce_x = true;
+			if (erase_block_group(bx, by2, 0))
+				bounce_x = true;
+		}
+
+		draw_ball(x, y, COLOR_BLACK);
+		draw_paddle(paddle, COLOR_BLACK);
+
+		int weight_a = scale_a - scale_init_a;
+		int weight_b = scale_b - scale_init_b;
+
+		if (weight_a < 0) weight_a = 0;
+		if (weight_b < 0) weight_b = 0;
+
+		if (weight_a + weight_b > MIN_WEIGHT)
+		{
+			paddle = (4*32*weight_b) / (weight_a + weight_b) - (4+16);
+			if (paddle < 0) paddle = 0;
+			if (paddle+8 > 3*32) paddle = 3*32-8;
+		}
+		else if (dy > 0)
+		{
+			if (paddle > 0 && x+2 <= paddle)
+				paddle -= xorshift32() % 2 ? 2 : 3;
+
+			if (paddle+8 < 3*32 && x >= paddle+6)
+				paddle += xorshift32() % 2 ? 2 : 3;
+		}
+
+		if (dy > 0 && (y == 3*32-6 || y == 3*32-5 || y == 3*32-4))
+		{
+			if (paddle-4 < x && x < paddle+2)
+				dx = -1;
+
+			if (paddle+6 < x && x < paddle+12)
+				dx = +1;
+
+			if (paddle-4 < x && x < paddle+12)
+				bounce_y = true;
+		}
+
+		if (bounce_x) dx = -dx;
+		if (bounce_y) dy = -dy;
+
+		x += dx;
+		y += dy;
+
+		draw_ball(x, y, COLOR_WHITE);
+		draw_paddle(paddle, COLOR_WHITE);
 	}
+}
+
+int compar_int(const void *vp1, const void *vp2)
+{
+	const int *ip1 = vp1, *ip2 = vp2;
+	if (*ip1 < *ip2) return -1;
+	if (*ip1 > *ip2) return +1;
+	return 0;
+}
+
+void init()
+{
+	scales_init();
+
+	scale_init_a = 0;
+	scale_init_b = 0;
+
+	while (!scales_ready()) { /* wait */ }
+	scales_read();
+
+	int initvals_a[7];
+	int initvals_b[7];
+
+	for (int i = 0; i < 7; i++) {
+		while (!scales_ready()) { /* wait */ }
+		scales_read();
+		initvals_a[i] = scale_a;
+		initvals_b[i] = scale_b;
+	}
+
+	qsort(initvals_a, 7, sizeof(int), compar_int);
+	qsort(initvals_b, 7, sizeof(int), compar_int);
+
+	scale_init_a = initvals_a[3];
+	scale_init_b = initvals_b[3];
+}
+
+int main()
+{
+	init();
+	while (1)
+		game();
 }
 
