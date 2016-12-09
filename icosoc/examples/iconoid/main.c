@@ -101,18 +101,26 @@ void setpixel(int x, int y, uint32_t color)
 	*(uint32_t*)(0x20000000 + 1 * 0x10000 + 4*(32*x + y)) = color;
 }
 
-void draw_ball(int x, int y, uint32_t color)
+void draw_ball(int x, int y)
 {
 	for (int cx = 0; cx < 4; cx++)
 	for (int cy = 0; cy < 4; cy++)
 		if ((cx != 0 && cx != 3) || (cy != 0 && cy != 3))
-			setpixel(x+cx, y+cy, color);
+			setpixel(x+cx, y+cy, COLOR_RED);
+}
+
+void erase_ball(int x, int y)
+{
+	for (int cx = 0; cx < 4; cx++)
+	for (int cy = 0; cy < 4; cy++)
+		if ((cx != 0 && cx != 3) || (cy != 0 && cy != 3))
+			setpixel(x+cx, y+cy, COLOR_BLACK);
 }
 
 void draw_block(int x, int y, uint32_t color)
 {
 	for (int cx = 8*x; cx < 8*(x+1); cx++)
-	for (int cy = 4*y; cy < 4*(y+1); cy++)
+	for (int cy = 4*y+8; cy < 4*(y+1)+8; cy++)
 		setpixel(cx, cy, color);
 
 	// setpixel(8*x+0, 4*y+0, COLOR_BLACK);
@@ -147,13 +155,31 @@ bool erase_block_group(int x, int y, int refcolor)
 	return true;
 }
 
-void draw_paddle(int x, uint32_t color)
+void draw_paddle(int x)
+{
+	setpixel(x+1, 3*32-2, COLOR_RED);
+	setpixel(x+2, 3*32-2, COLOR_BLUE);
+	setpixel(x+3, 3*32-2, COLOR_BLUE);
+	setpixel(x+4, 3*32-2, COLOR_BLUE);
+	setpixel(x+5, 3*32-2, COLOR_BLUE);
+	setpixel(x+6, 3*32-2, COLOR_RED);
+
+	setpixel(x+0, 3*32-1, COLOR_BLUE);
+	setpixel(x+1, 3*32-1, COLOR_BLUE);
+	setpixel(x+2, 3*32-1, COLOR_BLUE);
+
+	setpixel(x+5, 3*32-1, COLOR_BLUE);
+	setpixel(x+6, 3*32-1, COLOR_BLUE);
+	setpixel(x+7, 3*32-1, COLOR_BLUE);
+}
+
+void erase_paddle(int x)
 {
 	for (int cx = x+1; cx < x+7; cx++)
-		setpixel(cx, 3*32-2, color);
+		setpixel(cx, 3*32-2, COLOR_BLACK);
 
 	for (int cx = x; cx < x+8; cx++)
-		setpixel(cx, 3*32-1, color);
+		setpixel(cx, 3*32-1, COLOR_BLACK);
 }
 
 uint32_t xorshift32()
@@ -167,7 +193,7 @@ uint32_t xorshift32()
 
 void game()
 {
-	for (int y = 0; y < 3*32; y++)
+	for (int y = 8; y < 3*32; y++)
 	{
 		if (y % 4 == 0) {
 			while (!scales_ready()) { /* wait */ }
@@ -178,7 +204,7 @@ void game()
 				setpixel(x, y, all_colors[xorshift32() % (sizeof(all_colors)/sizeof(*all_colors))]);
 	}
 
-	for (int y = 0; y < 3*32; y++)
+	for (int y = 8; y < 3*32; y++)
 	{
 		if (y % 4 == 0) {
 			while (!scales_ready()) { /* wait */ }
@@ -189,7 +215,7 @@ void game()
 				setpixel(x, y, all_colors[xorshift32() % (sizeof(all_colors)/sizeof(*all_colors))]);
 	}
 
-	for (int y = 0; y < 3*32; y++)
+	for (int y = 8; y < 3*32; y++)
 	{
 		if (y % 4 == 0) {
 			while (!scales_ready()) { /* wait */ }
@@ -218,8 +244,9 @@ void game()
 		bool bounce_x = false, bounce_y = false;
 
 		if (x == 0 && dx < 0) bounce_x = true;
+		if (x+4 == 3*32 && dx > 0) bounce_x = true;
 
-		if (y == 0 && dy < 0)
+		if (y == 8 && dy < 0)
 		{
 			bounce_y = true;
 
@@ -230,9 +257,9 @@ void game()
 					rebuild = false;
 		}
 
-		if (rebuild && y % 4 == 0 && y > 0)
+		if (rebuild && y % 4 == 0 && y > 8)
 		{
-			int by = (y / 4) - 1;
+			int by = (y / 4) - 3;
 
 			for (int bx = 0; bx < 12; bx++)
 			{
@@ -246,15 +273,12 @@ void game()
 				rebuild = false;
 		}
 
-		if (x+4 == 3*32 && dx > 0) bounce_x = true;
-		// if (y+4 == 3*32 && dy > 0) bounce_y = true;
-
 		if (y > 3*32 + 8)
 			return;
 
-		if (dy < 0 && y > 0 && y%4 == 0)
+		if (dy < 0 && y > 8 && y%4 == 0)
 		{
-			int by = (y / 4) - 1;
+			int by = (y / 4) - 3;
 			int bx1 = x / 8;
 			int bx2 = (x+3) / 8;
 
@@ -266,7 +290,7 @@ void game()
 
 		if (dy > 0 && y+4 < 3*32 && y%4 == 0)
 		{
-			int by = (y / 4) + 1;
+			int by = (y / 4) - 1;
 			int bx1 = x / 8;
 			int bx2 = (x+3) / 8;
 
@@ -279,8 +303,8 @@ void game()
 		if (dx < 0 && x > 0 && x%8 == 0)
 		{
 			int bx = (x / 8) - 1;
-			int by1 = y / 4;
-			int by2 = (y+3) / 4;
+			int by1 = y / 4 - 2;
+			int by2 = (y+3) / 4 - 2;
 
 			if (erase_block_group(bx, by1, 0))
 				bounce_x = true;
@@ -291,8 +315,8 @@ void game()
 		if (dx > 0 && x+4 < 3*32 && x%8 == 4)
 		{
 			int bx = (x / 8) + 1;
-			int by1 = y / 4;
-			int by2 = (y+3) / 4;
+			int by1 = y / 4 - 2;
+			int by2 = (y+3) / 4 - 2;
 
 			if (erase_block_group(bx, by1, 0))
 				bounce_x = true;
@@ -300,8 +324,8 @@ void game()
 				bounce_x = true;
 		}
 
-		draw_ball(x, y, COLOR_BLACK);
-		draw_paddle(paddle, COLOR_BLACK);
+		erase_ball(x, y);
+		erase_paddle(paddle);
 
 		int weight_a = scale_a - scale_init_a - SUB_WEIGHT;
 		int weight_b = scale_b - scale_init_b - SUB_WEIGHT;
@@ -352,8 +376,8 @@ void game()
 		x += dx;
 		y += dy;
 
-		draw_ball(x, y, COLOR_WHITE);
-		draw_paddle(paddle, COLOR_WHITE);
+		draw_ball(x, y);
+		draw_paddle(paddle);
 	}
 }
 
@@ -365,8 +389,45 @@ int compar_int(const void *vp1, const void *vp2)
 	return 0;
 }
 
+const char banner_data[] =
+"................................................................................................"
+".#..........##..#...................***..*..**..**....*...*..@..........@@@...................@."
+".#..##..##.#...###..##..#.##.#.#....*..*.*.*...*......*...*..@..@@..@@..@..@..@@...@@@.@.@@.@@@."
+".#.#...#.#..#...#..#..#.##..#.#.#...***..*..*..*...**..*.*...@.@...@..@.@@@..@..@.@..@.@@..@..@."
+".#.#...##....#..#..#..#.#...#.#.#...*..*.*...*.*.......*.*...@.@...@..@.@..@.@..@.@.@@.@...@..@."
+".#..##..##.##...##..##..#...#.#.#...*..*.*.**...**......*....@..@@..@@..@@@...@@...@@@.@....@@@."
+"................................................................................................"
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+
 void init()
 {
+	for (int y = 0; y < 3*32; y++)
+	for (int x = 0; x < 3*32; x++)
+	{
+		uint32_t color = COLOR_BLACK;
+
+		if (y < 8)
+		{
+			switch (banner_data[96*y+x])
+			{
+			case '#':
+				color = COLOR_CYAN;
+				break;
+			case '*':
+				color = COLOR_RED;
+				break;
+			case '@':
+				color = COLOR_MAGENTA;
+				break;
+			case 'x':
+				color = x % 2 ? COLOR_BLUE : COLOR_RED;
+				break;
+			}
+		}
+
+		setpixel(x, y, color);
+	}
+
 	scales_init();
 
 	scale_init_a = 0;

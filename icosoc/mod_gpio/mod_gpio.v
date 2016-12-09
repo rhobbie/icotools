@@ -5,9 +5,9 @@ module icosoc_mod_gpio #(
 	input clk,
 	input resetn,
 
-	input ctrl_wr,
+	input [3:0] ctrl_wr,
 	input ctrl_rd,
-	input [ 7:0] ctrl_addr,
+	input [15:0] ctrl_addr,
 	input [31:0] ctrl_wdat,
 	output reg [31:0] ctrl_rdat,
 	output reg ctrl_done,
@@ -36,7 +36,7 @@ module icosoc_mod_gpio #(
 		//   0x00 data register
 		//   0x04 direction register
 		if (resetn && !ctrl_done) begin
-			if (ctrl_wr) begin
+			if (|ctrl_wr) begin
 				ctrl_done <= 1;
 				if (ctrl_addr == 0) io_out <= ctrl_wdat;
 				if (ctrl_addr == 4) io_dir <= ctrl_wdat;
