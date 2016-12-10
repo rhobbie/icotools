@@ -193,38 +193,6 @@ uint32_t xorshift32()
 
 void game()
 {
-	for (int y = 8; y < 3*32; y++)
-	{
-		if (y % 4 == 0) {
-			while (!scales_ready()) { /* wait */ }
-			scales_read();
-		}
-		for (int x = 0; x < 3*32; x++)
-			if (xorshift32() % 4 == 0)
-				setpixel(x, y, all_colors[xorshift32() % (sizeof(all_colors)/sizeof(*all_colors))]);
-	}
-
-	for (int y = 8; y < 3*32; y++)
-	{
-		if (y % 4 == 0) {
-			while (!scales_ready()) { /* wait */ }
-			scales_read();
-		}
-		for (int x = 0; x < 3*32; x++)
-			if (xorshift32() % 2 == 0)
-				setpixel(x, y, all_colors[xorshift32() % (sizeof(all_colors)/sizeof(*all_colors))]);
-	}
-
-	for (int y = 8; y < 3*32; y++)
-	{
-		if (y % 4 == 0) {
-			while (!scales_ready()) { /* wait */ }
-			scales_read();
-		}
-		for (int x = 0; x < 3*32; x++)
-			setpixel(x, y, COLOR_BLACK);
-	}
-
 	for (int by = 0; by < 12; by++)
 	for (int bx = 0; bx < 12; bx++)
 		block_map[bx][by] = 0;
@@ -233,6 +201,7 @@ void game()
 	int dx = 1, dy = -1;
 	int paddle = 3*32/2-4;
 	bool rebuild = false;
+	bool hitsomething = false;
 
 	while (1)
 	{
@@ -283,9 +252,9 @@ void game()
 			int bx2 = (x+3) / 8;
 
 			if (erase_block_group(bx1, by, 0))
-				bounce_y = true;
+				hitsomething = true, bounce_y = true;
 			if (erase_block_group(bx2, by, 0))
-				bounce_y = true;
+				hitsomething = true, bounce_y = true;
 		}
 
 		if (dy > 0 && y+4 < 3*32 && y%4 == 0)
@@ -295,9 +264,9 @@ void game()
 			int bx2 = (x+3) / 8;
 
 			if (erase_block_group(bx1, by, 0))
-				bounce_y = true;
+				hitsomething = true, bounce_y = true;
 			if (erase_block_group(bx2, by, 0))
-				bounce_y = true;
+				hitsomething = true, bounce_y = true;
 		}
 
 		if (dx < 0 && x > 0 && x%8 == 0)
@@ -307,9 +276,9 @@ void game()
 			int by2 = (y+3) / 4 - 2;
 
 			if (erase_block_group(bx, by1, 0))
-				bounce_x = true;
+				hitsomething = true, bounce_x = true;
 			if (erase_block_group(bx, by2, 0))
-				bounce_x = true;
+				hitsomething = true, bounce_x = true;
 		}
 
 		if (dx > 0 && x+4 < 3*32 && x%8 == 4)
@@ -319,9 +288,9 @@ void game()
 			int by2 = (y+3) / 4 - 2;
 
 			if (erase_block_group(bx, by1, 0))
-				bounce_x = true;
+				hitsomething = true, bounce_x = true;
 			if (erase_block_group(bx, by2, 0))
-				bounce_x = true;
+				hitsomething = true, bounce_x = true;
 		}
 
 		erase_ball(x, y);
@@ -343,13 +312,18 @@ void game()
 		{
 			int distance = (3*32-6) - y;
 			int final_x = x + distance*dx;
+			int final_dx = dx;
 
 			while (final_x < 0 || final_x > 3*32-4) {
 				if (final_x < 0)
 					final_x = -final_x;
 				else
 					final_x = 2*(3*32-4) - final_x;
+				final_dx = -final_dx;
 			}
+
+			if (hitsomething)
+				final_x += 4*final_dx;
 
 			if (paddle+2 > final_x)
 				paddle -= xorshift32() % 2 ? 2 : 3;
@@ -367,6 +341,7 @@ void game()
 				if (w > 1)
 					dx = delta < 0 ? -1 : +1;
 				bounce_y = true;
+				hitsomething = false;
 			}
 		}
 
@@ -456,7 +431,42 @@ void init()
 int main()
 {
 	init();
+
 	while (1)
+	{
 		game();
+
+		for (int y = 8; y < 3*32; y++)
+		{
+			if (y % 4 == 0) {
+				while (!scales_ready()) { /* wait */ }
+				scales_read();
+			}
+			for (int x = 0; x < 3*32; x++)
+				if (xorshift32() % 4 == 0)
+					setpixel(x, y, all_colors[xorshift32() % (sizeof(all_colors)/sizeof(*all_colors))]);
+		}
+
+		for (int y = 8; y < 3*32; y++)
+		{
+			if (y % 4 == 0) {
+				while (!scales_ready()) { /* wait */ }
+				scales_read();
+			}
+			for (int x = 0; x < 3*32; x++)
+				if (xorshift32() % 2 == 0)
+					setpixel(x, y, all_colors[xorshift32() % (sizeof(all_colors)/sizeof(*all_colors))]);
+		}
+
+		for (int y = 8; y < 3*32; y++)
+		{
+			if (y % 4 == 0) {
+				while (!scales_ready()) { /* wait */ }
+				scales_read();
+			}
+			for (int x = 0; x < 3*32; x++)
+				setpixel(x, y, COLOR_BLACK);
+		}
+	}
 }
 
