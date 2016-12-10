@@ -305,8 +305,6 @@ void game()
 		if (weight_a + weight_b > MIN_WEIGHT)
 		{
 			paddle = (4*32*weight_b) / (weight_a + weight_b) - (4+16);
-			if (paddle < 0) paddle = 0;
-			if (paddle+8 > 3*32) paddle = 3*32-8;
 		}
 		else if (dy > 0 && y < 3*32-8)
 		{
@@ -331,6 +329,9 @@ void game()
 			if (paddle+2 < final_x)
 				paddle += xorshift32() % 2 ? 2 : 3;
 		}
+
+		if (paddle < 0) paddle = 0;
+		if (paddle+8 > 3*32) paddle = 3*32-8;
 
 		if (dy > 0 && (y == 3*32-6 || y == 3*32-5 || y == 3*32-4))
 		{
