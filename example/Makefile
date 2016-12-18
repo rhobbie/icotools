@@ -13,6 +13,7 @@ help:
 	@echo
 	@echo "make prog_sram         FPGA SRAM programming, (re)starts FPGA from SRAM"
 	@echo "make prog_flash        serial flash programming, does not touch FPGA"
+	@echo "make prog_erase        erase first flash block"
 	@echo
 	@echo "make reset_halt        stop FPGA and keep in reset"
 	@echo "make reset_boot        (re)start FPGA from serial flash"
@@ -35,6 +36,9 @@ prog_sram: example.bin
 
 prog_flash: example.bin
 	$(SSH_RASPI) 'icoprog -f' < example.bin
+
+prog_erase:
+	$(SSH_RASPI) 'icoprog -e'
 
 reset_halt:
 	$(SSH_RASPI) 'icoprog -R'

@@ -627,7 +627,7 @@ void prog_flasherase()
 	spi_end();
 }
 
-void prog_flashmem(int pageoffset)
+void prog_flashmem(int pageoffset, bool erase_first_block)
 {
 	assert(enable_prog_port);
 
@@ -660,26 +660,40 @@ void prog_flashmem(int pageoffset)
 
 	// load prog data into buffer
 	std::vector<uint8_t> prog_data;
-	while (1) {
-		int byte = getchar();
-		if (byte < 0)
-			break;
-		prog_data.push_back(byte);
+	if (erase_first_block)
+	{
+		prog_data.push_back(0);
+	}
+	else
+	{
+		while (1) {
+			int byte = getchar();
+			if (byte < 0)
+				break;
+			prog_data.push_back(byte);
+		}
+
+		fprintf(stderr, "writing %.2fkB..", double(prog_data.size()) / 1024);
 	}
 
 	int ms_timer = 0;
-	fprintf(stderr, "writing %.2fkB..", double(prog_data.size()) / 1024);
-
 	for (int addr = 0; addr < int(prog_data.size()); addr += 256)
 	{
 		if (addr % (64*1024) == 0)
 		{
-			fprintf(stderr, "\n%3d%% @%06x ", 100*addr/int(prog_data.size()), addr);
-			fprintf(stderr, "erasing 64kB sector..");
+			if (erase_first_block) {
+				fprintf(stderr, "erasing 64kB sector @%06x..", addr);
+			} else {
+				fprintf(stderr, "\n%3d%% @%06x ", 100*addr/int(prog_data.size()), addr);
+				fprintf(stderr, "erasing 64kB sector..");
+			}
 
 			flash_write_enable();
 			flash_erase_64kB(addr + pageoffset * 0x10000);
 			ms_timer += flash_wait();
+
+			if (erase_first_block)
+				break;
 		}
 
 		if (addr % (32*256) == 0) {
@@ -712,7 +726,7 @@ void prog_flashmem(int pageoffset)
 	written_ok:;
 	}
 
-	fprintf(stderr, "\n100%% total wait time: %d ms\n", ms_timer);
+	fprintf(stderr, "\n%stotal wait time: %d ms\n", erase_first_block ? "" : "100% ", ms_timer);
 
 	// power_down
 	spi_begin();
@@ -1368,6 +1382,9 @@ void help(const char *progname)
 	fprintf(stderr, "Resetting FPGA (reload from flash):\n");
 	fprintf(stderr, "    %s -b\n", progname);
 	fprintf(stderr, "\n");
+	fprintf(stderr, "Erase first flash block:\n");
+	fprintf(stderr, "    %s -e\n", progname);
+	fprintf(stderr, "\n");
 	fprintf(stderr, "Bulk erase entire flash:\n");
 	fprintf(stderr, "    %s -E\n", progname);
 	fprintf(stderr, "\n");
@@ -1401,7 +1418,7 @@ void help(const char *progname)
 	fprintf(stderr, "\n");
 	fprintf(stderr, "Additional options:\n");
 	fprintf(stderr, "    -v      verbose output\n");
-	fprintf(stderr, "    -O N    offset (in 64 kB pages) for -f\n");
+	fprintf(stderr, "    -O N    offset (in 64 kB pages) for -f and -e\n");
 	fprintf(stderr, "    -z      send a terminating zero byte with -w/-c\n");
 	fprintf(stderr, "    -Z      wait for terminating zero byte in -r/-c\n");
 	fprintf(stderr, "    -t N    send trigger N before -w/-r/-c\n");
@@ -1415,7 +1432,7 @@ int main(int argc, char **argv)
 	int pageoffset = 0;
 	char mode = 0;
 
-	while ((opt = getopt(argc, argv, "RbEpfF:TBw:r:c:vzZt:O:V:")) != -1)
+	while ((opt = getopt(argc, argv, "RbEpfeF:TBw:r:c:vzZt:O:V:")) != -1)
 	{
 		switch (opt)
 		{
@@ -1432,6 +1449,7 @@ int main(int argc, char **argv)
 		case 'b':
 		case 'p':
 		case 'f':
+		case 'e':
 		case 'T':
 		case 'B':
 			if (mode)
@@ -1505,7 +1523,15 @@ int main(int argc, char **argv)
 		enable_prog_port = true;
 		wiringPiSetup();
 		reset_inout();
-		prog_flashmem(pageoffset);
+		prog_flashmem(pageoffset, false);
+		reset_inout();
+	}
+
+	if (mode == 'e') {
+		enable_prog_port = true;
+		wiringPiSetup();
+		reset_inout();
+		prog_flashmem(pageoffset, true);
 		reset_inout();
 	}
 
