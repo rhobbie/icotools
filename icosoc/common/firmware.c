@@ -56,17 +56,21 @@ static void console_puts(const char *s)
 
 static int console_getc_timeout()
 {
-#ifdef NOFLASHBOOT
+#ifdef FASTFLASHBOOT
+	return 127;
+#else
+#  ifdef NOFLASHBOOT
 	while (1) {
 		int c = *(volatile uint32_t*)0x30000000;
 		if (c >= 0) return c;
 	}
-#else
+#  else
 	for (int i = 0; i < 5000000; i++) {
 		int c = *(volatile uint32_t*)0x30000000;
 		if (c >= 0) return c;
 	}
 	return 127;
+#  endif
 #endif
 }
 

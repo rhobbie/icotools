@@ -36,6 +36,7 @@ enable_muldiv_isa = False
 enable_flashmem = False
 enable_flashpmem = False
 enable_noflashboot = False
+enable_fastflashboot = False
 
 debug_depth = 256
 debug_trigat = 0
@@ -125,6 +126,7 @@ def parse_cfg(f):
     global enable_flashmem
     global enable_flashpmem
     global enable_noflashboot
+    global enable_fastflashboot
     global debug_code_append
 
     current_mod_name = None
@@ -186,6 +188,12 @@ def parse_cfg(f):
             assert len(line) == 1
             assert current_mod_name is None
             enable_noflashboot = True
+            continue
+
+        if line[0] == "fastflashboot":
+            assert len(line) == 1
+            assert current_mod_name is None
+            enable_fastflashboot = True
             continue
 
         if line[0] == "debug_net":
@@ -1317,8 +1325,12 @@ icosoc_mk["60-simulation"].append("\tvvp -N testbench")
 
 if not opt.custom_firmware:
     icosoc_mk["70-firmware"].append("firmware.elf: %s/common/firmware.S %s/common/firmware.c %s/common/firmware.lds" % (basedir, basedir, basedir))
-    icosoc_mk["70-firmware"].append("\t$(RISCV_TOOLS_PREFIX)gcc -Os -m32 %s%s-march=RV32IXcustom -ffreestanding -nostdlib -Wall -o firmware.elf %s/common/firmware.S %s/common/firmware.c \\" %
-            ("-DFLASHPMEM " if enable_flashpmem else "", "-DNOFLASHBOOT " if enable_noflashboot else "", basedir, basedir))
+    icosoc_mk["70-firmware"].append(("\t$(RISCV_TOOLS_PREFIX)gcc -Os -m32 %s%s%s-march=RV32IXcustom -ffreestanding " +
+            "-nostdlib -Wall -o firmware.elf %s/common/firmware.S %s/common/firmware.c \\") % (
+            "-DFLASHPMEM " if enable_flashpmem else "",
+            "-DNOFLASHBOOT " if enable_noflashboot else "",
+            "-DFASTFLASHBOOT " if enable_fastflashboot else "",
+            basedir, basedir))
     icosoc_mk["70-firmware"].append("\t\t\t--std=gnu99 -Wl,-Bstatic,-T,%s/common/firmware.lds,-Map,firmware.map,--strip-debug -lgcc" % basedir)
     icosoc_mk["70-firmware"].append("\tchmod -x firmware.elf")
 

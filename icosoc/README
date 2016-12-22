@@ -120,6 +120,12 @@ noflashboot
 Do not attempt to load application from flash after timeout. Set when
 connecting via SSH (e.g. from "make run") may take longer than the timeout.
 
+fastflashboot
+-------------
+
+Boot from flash right away. Do not wait for a firmware image via the console
+interface.
+
 
 IcoSoC Module Sections
 ======================
