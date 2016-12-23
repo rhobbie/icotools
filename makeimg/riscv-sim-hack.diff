@@ -1,0 +1,11 @@
+--- riscv-binutils-gdb/sim/riscv/sim-main.c.orig	2016-12-22 18:01:53.551569307 +0000
++++ riscv-binutils-gdb/sim/riscv/sim-main.c	2016-12-22 18:07:15.208432712 +0000
+@@ -598,7 +598,7 @@
+ static unsigned64
+ mulhu (unsigned64 a, unsigned64 b)
+ {
+-#ifdef __GNUC__
++#if 0
+   return ((__int128)a * b) >> 64;
+ #else
+   uint64_t t;
