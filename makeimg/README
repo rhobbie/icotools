@@ -1,0 +1,48 @@
+
+Collection of scripts and notes for building a raspbian image + IceStorm + IcoTools
+-----------------------------------------------------------------------------------
+
+1. Download raspbian image .zip file, extract, copy to SD card (min 16 GB) and
+boot a Raspberry Pi from that card. E.g. assuming the SD card is /dev/sdf:
+
+	$ sudo dd bs=4M if=2016-11-25-raspbian-jessie.img of=/dev/sdf
+
+2. On that Raspberry Pi, clone this git repo, cd to icotools/makeimg/ and run
+
+	$ sudo bash ./build.sh
+
+This will run for a couple of hours. You will need a heat sink on the CPU on the
+Raspberry Pi and maybe even air cooling with a little fan while running this script.
+
+3. Copy the generated archive.tgz file back to the PC.
+
+4. Back on your PC, blank and re-write the SD card image:
+
+	$ sudo dd bs=4M count=2048 if=/dev/zero of=/dev/sdf
+	$ sudo dd bs=4M if=2016-11-25-raspbian-jessie.img of=/dev/sdf
+
+5. Resize raspbian root partition on the SD card:
+
+	$ sudo parted /dev/sdf
+	(parted) resizepart 2 7GB
+	(parted) quit
+
+6. Resize raspbian root filesystem:
+
+	$ sudo e2fsck -f /dev/sdf2
+	$ sudo resize2fs /dev/sdf2
+
+7. Mount raspbian root filesystem:
+
+	$ mkdir sdcard-root
+	$ sudo mount /dev/sdf2 sdcard-root
+
+8. Copy additional file into raspbian root filesystem:
+
+	$ sudo tar -C sdcard-root -xvzf archive.tgz
+
+9. Umount raspbian root filesystem and create new image:
+
+	$ sudo umount /dev/sdf2
+	$ sudo dd bs=4M count=2048 if=/dev/sdf of=2016-11-25-raspbian-jessie-icotools.img
+
