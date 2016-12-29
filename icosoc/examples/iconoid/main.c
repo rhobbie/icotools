@@ -162,23 +162,27 @@ void draw_paddle(int x)
 	setpixel(x+3, 3*32-2, COLOR_BLUE);
 	setpixel(x+4, 3*32-2, COLOR_BLUE);
 	setpixel(x+5, 3*32-2, COLOR_BLUE);
-	setpixel(x+6, 3*32-2, COLOR_RED);
+	setpixel(x+6, 3*32-2, COLOR_BLUE);
+	setpixel(x+7, 3*32-2, COLOR_BLUE);
+	setpixel(x+8, 3*32-2, COLOR_BLUE);
+	setpixel(x+9, 3*32-2, COLOR_BLUE);
+	setpixel(x+10, 3*32-2, COLOR_RED);
 
 	setpixel(x+0, 3*32-1, COLOR_BLUE);
 	setpixel(x+1, 3*32-1, COLOR_BLUE);
 	setpixel(x+2, 3*32-1, COLOR_BLUE);
 
-	setpixel(x+5, 3*32-1, COLOR_BLUE);
-	setpixel(x+6, 3*32-1, COLOR_BLUE);
-	setpixel(x+7, 3*32-1, COLOR_BLUE);
+	setpixel(x+9, 3*32-1, COLOR_BLUE);
+	setpixel(x+10, 3*32-1, COLOR_BLUE);
+	setpixel(x+11, 3*32-1, COLOR_BLUE);
 }
 
 void erase_paddle(int x)
 {
-	for (int cx = x+1; cx < x+7; cx++)
+	for (int cx = x+1; cx < x+11; cx++)
 		setpixel(cx, 3*32-2, COLOR_BLACK);
 
-	for (int cx = x; cx < x+8; cx++)
+	for (int cx = x; cx < x+12; cx++)
 		setpixel(cx, 3*32-1, COLOR_BLACK);
 }
 
@@ -321,24 +325,24 @@ void game()
 			}
 
 			if (hitsomething)
-				final_x += 4*final_dx;
+				final_x += 6*final_dx;
 
-			if (paddle+2 > final_x)
+			if (paddle+4 > final_x)
 				paddle -= xorshift32() % 2 ? 2 : 3;
 
-			if (paddle+2 < final_x)
+			if (paddle+4 < final_x)
 				paddle += xorshift32() % 2 ? 2 : 3;
 		}
 
 		if (paddle < 0) paddle = 0;
-		if (paddle+8 > 3*32) paddle = 3*32-8;
+		if (paddle+12 > 3*32) paddle = 3*32-12;
 
 		if (dy > 0 && (y == 3*32-6 || y == 3*32-5 || y == 3*32-4))
 		{
 			int w = y - (3*32-7);
 			int delta = x - paddle;
 
-			if (0 <= delta+w && delta-w < 5) {
+			if (0 <= delta+w && delta-w < 9) {
 				if (w > 1)
 					dx = delta < 0 ? -1 : +1;
 				bounce_y = true;
