@@ -24,8 +24,8 @@ help:
 example.blif: example.v
 	yosys -p 'synth_ice40 -blif example.blif' example.v
 
-example.asc: example.blif example.pcf
-	arachne-pnr -d 8k -p example.pcf -o example.asc example.blif
+example.asc: example.blif icoboard.pcf
+	arachne-pnr -d 8k -p icoboard.pcf -o example.asc example.blif
 
 example.bin: example.asc
 	icetime -d hx8k -c 25 example.asc
