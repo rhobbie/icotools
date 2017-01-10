@@ -44,5 +44,5 @@ Raspberry Pi and maybe even air cooling with a little fan while running this scr
 9. Umount raspbian root filesystem and create new image:
 
 	$ sudo umount /dev/sdf2
-	$ sudo dd bs=4M count=2048 if=/dev/sdf of=2016-11-25-raspbian-jessie-icotools.img
+	$ sudo dd bs=4M count=1900 if=/dev/sdf of=2016-11-25-raspbian-jessie-icotools.img
 
