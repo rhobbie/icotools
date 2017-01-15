@@ -1325,7 +1325,7 @@ icosoc_mk["60-simulation"].append("\tvvp -N testbench")
 
 if not opt.custom_firmware:
     icosoc_mk["70-firmware"].append("firmware.elf: %s/common/firmware.S %s/common/firmware.c %s/common/firmware.lds icosoc.cfg" % (basedir, basedir, basedir))
-    icosoc_mk["70-firmware"].append(("\t$(RISCV_TOOLS_PREFIX)gcc -Os -m32 %s%s%s-march=RV32IXcustom -ffreestanding " +
+    icosoc_mk["70-firmware"].append(("\t$(RISCV_TOOLS_PREFIX)gcc -Os %s%s%s-march=rv32i -ffreestanding " +
             "-nostdlib -Wall -o firmware.elf %s/common/firmware.S %s/common/firmware.c \\") % (
             "-DFLASHPMEM " if enable_flashpmem else "",
             "-DNOFLASHBOOT " if enable_noflashboot else "",

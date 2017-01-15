@@ -1,225 +1,200 @@
-/*======================================================================*/
-/* Default maven linker script                                          */
-/*======================================================================*/
-/* This is the default linker script for maven. It is based off of the
-   mips idt32.ld linker script. I have added many more comments and
-   tried to clean things up a bit. For more information about standard
-   MIPS sections see Section 9.5 of "See MIPS Run Linux" by Dominic
-   Sweetman. For more generic information about the init, fini, ctors,
-   and dtors sections see the paper titled "ELF From the Programmers
-   Perspective" by Hongiu Lu. */
-
-/*----------------------------------------------------------------------*/
-/* Setup                                                                */
-/*----------------------------------------------------------------------*/
-
-/* The OUTPUT_ARCH command specifies the machine architecture where the
-   argument is one of the names used in the BFD library. More
-   specifically one of the entires in bfd/cpu-mips.c */
-
-OUTPUT_ARCH( "riscv" )
-
-/* The ENTRY command specifies the entry point (ie. first instruction to
-   execute). The symbol _start is defined in crt0.S */
-
-ENTRY( _start )
-
-/* The GROUP command is special since the listed archives will be
-   searched repeatedly until there are no new undefined references. We
-   need this since -lc depends on -lgloss and -lgloss depends on -lc. I
-   thought gcc would automatically include -lgcc when needed, but
-   idt32.ld includes it explicitly here and I was seeing link errors
-   without it. */
-
-GROUP( -lc -lgloss -lgcc )
-
-/*----------------------------------------------------------------------*/
-/* Sections                                                             */
-/*----------------------------------------------------------------------*/
-/* This is where we specify how the input sections map to output
-   sections. The .= commands set the location counter, and the
-   sections are inserted in increasing address order according to the
-   location counter. The following statement will take all of the .bar
-   input sections and reloate them into the .foo output section which
-   starts at address 0x1000.
-
-    . = 0.x1000;
-    .foo : { *(.bar) }
-
-   If we wrap an input specification with a KEEP command then it
-   prevents it from being eliminted during "link-time garbage
-   collection". I'm not sure what this is, so I just followed what was
-   done in idt32.ld.
-
-   We can also set a global external symbol to a specific address in the
-   output binary with this syntax:
-
-    _etext = .;
-    PROVIDE( etext = . );
-
-   This will set the global symbol _ftext to the current location. If we
-   wrap this in a PROVIDE commad, the symbol will only be set if it is
-   not defined. We do this with symbols which don't begin with an
-   underscore since technically in ansi C someone might have a function
-   with the same name (eg. etext).
-
-   If we need to label the beginning of a section we need to make sure
-   that the linker doesn't insert an orphan section inbetween where we
-   set the symbol and the actual begining of the section. We can do that
-   by assigning the location dot to itself.
-
-    . = .
-    _ftext = .;
-    .text :
-    { }
-
-   */
-
+/* Default linker script, for normal executables */
+/* Copyright (C) 2014-2016 Free Software Foundation, Inc.
+   Copying and distribution of this script, with or without modification,
+   are permitted in any medium without royalty provided the copyright
+   notice and this notice are preserved.  */
+OUTPUT_FORMAT("elf32-littleriscv", "elf32-littleriscv",
+	      "elf32-littleriscv")
+OUTPUT_ARCH(riscv)
+ENTRY(_start)
 SECTIONS
 {
-
-  /*--------------------------------------------------------------------*/
-  /* Code and read-only segment                                         */
-  /*--------------------------------------------------------------------*/
-
-  /* Begining of code and text segment */
   . = 0x00010000;
-  _ftext = .;
-  PROVIDE( eprol = . );
-
-  /* text: Program code section */
-  .text : 
+  .text           :
   {
     *(.text)
-    *(.text.*)
-    *(.gnu.linkonce.t.*)
+    *(.text.unlikely .text.*_unlikely .text.unlikely.*)
+    *(.text.exit .text.exit.*)
+    *(.text.startup .text.startup.*)
+    *(.text.hot .text.hot.*)
+    *(.stub .text.* .gnu.linkonce.t.*)
+    /* .gnu.warning sections are handled specially by elf32.em.  */
+    *(.gnu.warning)
   }
-
-  /* init: Code to execute before main (called by crt0.S) */
-  .init : 
+  .init           :
   {
-    KEEP( *(.init) )
+    KEEP (*(SORT_NONE(.init)))
   }
-
-  /* fini: Code to execute after main (called by crt0.S) */
-  .fini : 
+  .plt            : { *(.plt) }
+  .iplt           : { *(.iplt) }
+  .fini           :
   {
-    KEEP( *(.fini) )
+    KEEP (*(SORT_NONE(.fini)))
   }
-
-  /* rodata: Read-only data */
-  .rodata : 
+  PROVIDE (__etext = .);
+  PROVIDE (_etext = .);
+  PROVIDE (etext = .);
+  .rodata         : { *(.rodata .rodata.* .gnu.linkonce.r.*) }
+  .rodata1        : { *(.rodata1) }
+  .sdata2         :
   {
-    *(.rdata)
-    *(.rodata)
-    *(.rodata.*)
-    *(.gnu.linkonce.r.*)
+    *(.sdata2 .sdata2.* .gnu.linkonce.s2.*)
   }
-
-  /* End of code and read-only segment */
-  PROVIDE( etext = . );
-  _etext = .;
-
-  /*--------------------------------------------------------------------*/
-  /* Global constructor/destructor segement                             */
-  /*--------------------------------------------------------------------*/
-
+  .sbss2          : { *(.sbss2 .sbss2.* .gnu.linkonce.sb2.*) }
+  .eh_frame_hdr : { *(.eh_frame_hdr) *(.eh_frame_entry .eh_frame_entry.*) }
+  .eh_frame       : ONLY_IF_RO { KEEP (*(.eh_frame)) *(.eh_frame.*) }
+  .gcc_except_table   : ONLY_IF_RO { *(.gcc_except_table
+  .gcc_except_table.*) }
+  .gnu_extab   : ONLY_IF_RO { *(.gnu_extab*) }
+  /* These sections are generated by the Sun/Oracle C++ compiler.  */
+  .exception_ranges   : ONLY_IF_RO { *(.exception_ranges
+  .exception_ranges*) }
+  /* Adjust the address for the data segment.  We want to adjust up to
+     the same address within the page on the next page up.  */
+  . = DATA_SEGMENT_ALIGN (CONSTANT (MAXPAGESIZE), CONSTANT (COMMONPAGESIZE));
+  /* Exception handling  */
+  .eh_frame       : ONLY_IF_RW { KEEP (*(.eh_frame)) *(.eh_frame.*) }
+  .gnu_extab      : ONLY_IF_RW { *(.gnu_extab) }
+  .gcc_except_table   : ONLY_IF_RW { *(.gcc_except_table .gcc_except_table.*) }
+  .exception_ranges   : ONLY_IF_RW { *(.exception_ranges .exception_ranges*) }
+  /* Thread Local Storage sections  */
+  .tdata	  : { *(.tdata .tdata.* .gnu.linkonce.td.*) }
+  .tbss		  : { *(.tbss .tbss.* .gnu.linkonce.tb.*) *(.tcommon) }
   .preinit_array     :
   {
     PROVIDE_HIDDEN (__preinit_array_start = .);
     KEEP (*(.preinit_array))
     PROVIDE_HIDDEN (__preinit_array_end = .);
   }
-
   .init_array     :
   {
     PROVIDE_HIDDEN (__init_array_start = .);
-    KEEP (*(SORT(.init_array.*)))
-    KEEP (*(.init_array ))
+    KEEP (*(SORT_BY_INIT_PRIORITY(.init_array.*) SORT_BY_INIT_PRIORITY(.ctors.*)))
+    KEEP (*(.init_array EXCLUDE_FILE (*crtbegin.o *crtbegin?.o *crtend.o *crtend?.o ) .ctors))
     PROVIDE_HIDDEN (__init_array_end = .);
   }
-
   .fini_array     :
   {
     PROVIDE_HIDDEN (__fini_array_start = .);
-    KEEP (*(SORT(.fini_array.*)))
-    KEEP (*(.fini_array ))
+    KEEP (*(SORT_BY_INIT_PRIORITY(.fini_array.*) SORT_BY_INIT_PRIORITY(.dtors.*)))
+    KEEP (*(.fini_array EXCLUDE_FILE (*crtbegin.o *crtbegin?.o *crtend.o *crtend?.o ) .dtors))
     PROVIDE_HIDDEN (__fini_array_end = .);
   }
-
-  /*--------------------------------------------------------------------*/
-  /* Other misc gcc segments (this was in idt32.ld)                     */
-  /*--------------------------------------------------------------------*/
-  /* I am not quite sure about these sections but it seems they are for
-     C++ exception handling. I think .jcr is for "Java Class
-     Registration" but it seems to end up in C++ binaries as well. */
-
-  .eh_frame_hdr     : { *(.eh_frame_hdr)     }
-  .eh_frame         : { KEEP( *(.eh_frame) ) }
-  .gcc_except_table : { *(.gcc_except_table) }
-  .jcr              : { KEEP (*(.jcr))       } 
-
-  /*--------------------------------------------------------------------*/
-  /* Initialized data segment                                           */
-  /*--------------------------------------------------------------------*/
-
-  /* Start of initialized data segment */
-  . = ALIGN(16);
-   _fdata = .;
-
-  /* data: Writable data */
-  .data : 
+  .ctors          :
   {
-    *(.data)
-    *(.data.*)
-    *(.gnu.linkonce.d.*)
+    /* gcc uses crtbegin.o to find the start of
+       the constructors, so we make sure it is
+       first.  Because this is a wildcard, it
+       doesn't matter if the user does not
+       actually link against crtbegin.o; the
+       linker won't look for a file to match a
+       wildcard.  The wildcard also means that it
+       doesn't matter which directory crtbegin.o
+       is in.  */
+    KEEP (*crtbegin.o(.ctors))
+    KEEP (*crtbegin?.o(.ctors))
+    /* We don't want to include the .ctor section from
+       the crtend.o file until after the sorted ctors.
+       The .ctor section from the crtend file contains the
+       end of ctors marker and it must be last */
+    KEEP (*(EXCLUDE_FILE (*crtend.o *crtend?.o ) .ctors))
+    KEEP (*(SORT(.ctors.*)))
+    KEEP (*(.ctors))
   }
-
-  /* End of initialized data segment */
-  PROVIDE( edata = . );
-  _edata = .;
-
-  /* Have _gp point to middle of sdata/sbss to maximize displacement range */
-  . = ALIGN(16);
-  _gp = . + 0x800;
-
-  /* Writable small data segment */
-  .sdata : 
+  .dtors          :
   {
-    *(.sdata)
-    *(.sdata.*)
-    *(.srodata.*)
-    *(.gnu.linkonce.s.*)
+    KEEP (*crtbegin.o(.dtors))
+    KEEP (*crtbegin?.o(.dtors))
+    KEEP (*(EXCLUDE_FILE (*crtend.o *crtend?.o ) .dtors))
+    KEEP (*(SORT(.dtors.*)))
+    KEEP (*(.dtors))
   }
-
-  /*--------------------------------------------------------------------*/
-  /* Uninitialized data segment                                         */
-  /*--------------------------------------------------------------------*/
-
-  /* Start of uninitialized data segment */
-  . = ALIGN(8);
-  _fbss = .;
-
-  /* Writable uninitialized small data segment */
-  .sbss : 
+  .jcr            : { KEEP (*(.jcr)) }
+  .data.rel.ro : { *(.data.rel.ro.local* .gnu.linkonce.d.rel.ro.local.*) *(.data.rel.ro .data.rel.ro.* .gnu.linkonce.d.rel.ro.*) }
+  .dynamic        : { *(.dynamic) }
+  . = DATA_SEGMENT_RELRO_END (0, .);
+  .data           :
   {
-    *(.sbss)
-    *(.sbss.*)
-    *(.gnu.linkonce.sb.*)
+    *(.data .data.* .gnu.linkonce.d.*)
+    SORT(CONSTRUCTORS)
   }
-
-  /* bss: Uninitialized writeable data section */
+  .data1          : { *(.data1) }
+  .got            : { *(.got.plt) *(.igot.plt) *(.got) *(.igot) }
+  /* We want the small data sections together, so single-instruction offsets
+     can access them all, and initialized data all before uninitialized, so
+     we can shorten the on-disk segment size.  */
+  .sdata          :
+  {
+    _gp = . + 0x800;
+    *(.srodata.cst16) *(.srodata.cst8) *(.srodata.cst4) *(.srodata.cst2) *(.srodata .srodata.*)
+    *(.sdata .sdata.* .gnu.linkonce.s.*)
+  }
+  _edata = .; PROVIDE (edata = .);
   . = .;
-  _bss_start = .;
-  .bss : 
+  __bss_start = .;
+  .sbss           :
   {
-    *(.bss)
-    *(.bss.*)
-    *(.gnu.linkonce.b.*)
-    *(COMMON)
+    *(.dynsbss)
+    *(.sbss .sbss.* .gnu.linkonce.sb.*)
+    *(.scommon)
   }
-
-  /* End of uninitialized data segment (used by syscalls.c for heap) */
-  PROVIDE( end = . );
-  _end = ALIGN(8);
+  .bss            :
+  {
+   *(.dynbss)
+   *(.bss .bss.* .gnu.linkonce.b.*)
+   *(COMMON)
+   /* Align here to ensure that the .bss section occupies space up to
+      _end.  Align after .bss to ensure correct alignment even if the
+      .bss section disappears because there are no input sections.
+      FIXME: Why do we need it? When there is no .bss section, we don't
+      pad the .data section.  */
+   . = ALIGN(. != 0 ? 32 / 8 : 1);
+  }
+  . = ALIGN(32 / 8);
+  . = SEGMENT_START("ldata-segment", .);
+  . = ALIGN(32 / 8);
+  _end = .; PROVIDE (end = .);
+  . = DATA_SEGMENT_END (.);
+  /* Stabs debugging sections.  */
+  .stab          0 : { *(.stab) }
+  .stabstr       0 : { *(.stabstr) }
+  .stab.excl     0 : { *(.stab.excl) }
+  .stab.exclstr  0 : { *(.stab.exclstr) }
+  .stab.index    0 : { *(.stab.index) }
+  .stab.indexstr 0 : { *(.stab.indexstr) }
+  .comment       0 : { *(.comment) }
+  /* DWARF debug sections.
+     Symbols in the DWARF debugging sections are relative to the beginning
+     of the section so we begin them at 0.  */
+  /* DWARF 1 */
+  .debug          0 : { *(.debug) }
+  .line           0 : { *(.line) }
+  /* GNU DWARF 1 extensions */
+  .debug_srcinfo  0 : { *(.debug_srcinfo) }
+  .debug_sfnames  0 : { *(.debug_sfnames) }
+  /* DWARF 1.1 and DWARF 2 */
+  .debug_aranges  0 : { *(.debug_aranges) }
+  .debug_pubnames 0 : { *(.debug_pubnames) }
+  /* DWARF 2 */
+  .debug_info     0 : { *(.debug_info .gnu.linkonce.wi.*) }
+  .debug_abbrev   0 : { *(.debug_abbrev) }
+  .debug_line     0 : { *(.debug_line .debug_line.* .debug_line_end ) }
+  .debug_frame    0 : { *(.debug_frame) }
+  .debug_str      0 : { *(.debug_str) }
+  .debug_loc      0 : { *(.debug_loc) }
+  .debug_macinfo  0 : { *(.debug_macinfo) }
+  /* SGI/MIPS DWARF 2 extensions */
+  .debug_weaknames 0 : { *(.debug_weaknames) }
+  .debug_funcnames 0 : { *(.debug_funcnames) }
+  .debug_typenames 0 : { *(.debug_typenames) }
+  .debug_varnames  0 : { *(.debug_varnames) }
+  /* DWARF 3 */
+  .debug_pubtypes 0 : { *(.debug_pubtypes) }
+  .debug_ranges   0 : { *(.debug_ranges) }
+  /* DWARF Extension.  */
+  .debug_macro    0 : { *(.debug_macro) }
+  .debug_addr     0 : { *(.debug_addr) }
+  .gnu.attributes 0 : { KEEP (*(.gnu.attributes)) }
+  /DISCARD/ : { *(.note.GNU-stack) *(.gnu_debuglink) *(.gnu.lto_*) }
 }
+
