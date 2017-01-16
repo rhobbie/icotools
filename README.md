@@ -6,6 +6,11 @@ Low-level programming tool for IcoBoard. Runs on Raspberry Pi. Usually called
 via SSH from a workstation (unless FPGA bit-streams are generated locally on
 the Raspberry Pi).
 
+[Directory examples](examples/)
+-------------------------------
+
+Small and simple example designs that run on the IcoBoard.
+
 [Directory icosoc](icosoc/)
 ---------------------------
 
