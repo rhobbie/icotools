@@ -279,15 +279,8 @@ static inline void icosoc_irq(void(*irq_handler)(uint32_t,uint32_t*)) {
     *((uint32_t*)8) = (uint32_t)irq_handler;
 }
 
-static inline uint32_t icosoc_maskirq(uint32_t mask) {
-    asm volatile ("custom0 %%0,%%0,0,3" : "+r" (mask) : : "memory");
-    return mask;
-}
-
-static inline uint32_t icosoc_timer(uint32_t ticks) {
-    asm volatile ("custom0 %%0,%%0,0,5" : "+r" (ticks));
-    return ticks;
-}
+extern uint32_t icosoc_maskirq(uint32_t mask);
+extern uint32_t icosoc_timer(uint32_t ticks);
 
 static inline void icosoc_sbreak() {
     asm volatile ("sbreak" : : : "memory");
@@ -335,6 +328,20 @@ icosoc_c.append("""
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
+
+asm (
+".global icosoc_maskirq\\n"
+"icosoc_maskirq:\\n"
+".word 0x0605650b\\n" // picorv32_maskirq_insn(a0, a0)
+"ret\\n"
+);
+
+asm (
+".global icosoc_timer\\n"
+"icosoc_timer:\\n"
+".word 0x0a05650b\\n" // picorv32_timer_insn(a0, a0)
+"ret\\n"
+);
 
 """);
 

@@ -8,7 +8,7 @@ appimage.hex:
 	echo > appimage.hex
 
 firmware.elf: firmware.c
-	$(RISCV_TOOLS_PREFIX)gcc -Os -m32 -march=RV32IXcustom -ffreestanding -nostdlib -Wall -o firmware.elf $(ICOSOC_ROOT)/common/firmware.S firmware.c \
+	$(RISCV_TOOLS_PREFIX)gcc -Os -march=rv32i -ffreestanding -nostdlib -Wall -o firmware.elf $(ICOSOC_ROOT)/common/firmware.S firmware.c \
 		--std=gnu99 -Wl,-Bstatic,-T,$(ICOSOC_ROOT)/common/firmware.lds,-Map,firmware.map,--strip-debug -lgcc
 	chmod -x firmware.elf
 
