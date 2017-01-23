@@ -342,6 +342,7 @@ void pininfo(const char *name, int pin)
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <errno.h>
 
 // Pinout for UP-board:
 // https://up-community.org/wiki/Pinout
@@ -394,7 +395,7 @@ void my_write(int fd, const void *buffer, int n)
 	int rc = write(fd, buffer, n);
 
 	if (rc != n) {
-		fprintf(stderr, "Unexpected GPIO write() error.\n");
+		fprintf(stderr, "Unexpected GPIO write error.\n");
 		exit(1);
 	}
 }
@@ -404,18 +405,22 @@ void pinSetup(int pin)
 	if (gpio_direction_fds[pin] < 0)
 	{
 		char buffer[4096];
-		int f, n;
+		int f, n, rc;
 
 		f = open("/sys/class/gpio/export", O_WRONLY);
 		n = snprintf(buffer, 4096, "%d", pin);
-		my_write(f, buffer, n);
+		rc = write(f, buffer, n);
+		if (rc != n && (rc != -1 || errno != EBUSY)) {
+			fprintf(stderr, "Unexpected GPIO export error.\n");
+			exit(1);
+		}
 		close(f);
 
 		snprintf(buffer, 4096, "/sys/class/gpio/gpio%d/direction", pin);
 		gpio_direction_fds[pin] = open(buffer, O_WRONLY);
 
 		snprintf(buffer, 4096, "/sys/class/gpio/gpio%d/value", pin);
-		gpio_value_fds[pin] = open(buffer, O_RDONLY);
+		gpio_value_fds[pin] = open(buffer, O_RDWR);
 
 		my_write(gpio_direction_fds[pin], "in\n", 3);
 		gpio_direction[pin] = 0;
@@ -456,9 +461,9 @@ void digitalWrite(int pin, int val)
 
 	if (gpio_direction[pin] == 1) {
 		if (gpio_value[pin])
-			my_write(gpio_direction_fds[pin], "high\n", 5);
+			my_write(gpio_value_fds[pin], "1", 1);
 		else
-			my_write(gpio_direction_fds[pin], "low\n", 4);
+			my_write(gpio_value_fds[pin], "0", 1);
 	}
 }
 
@@ -580,7 +585,7 @@ void prog_bitstream(bool reset_only = false)
 			digitalWrite(RPI_ICE_CLK, HIGH);
 		}
 
-		if (verbose && (k % 1024) == 1023)
+		if (verbose && !(k % 1024) && k)
 			printf("%3d kB written.\n", k / 1024);
 	}
 
