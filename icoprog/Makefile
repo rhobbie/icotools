@@ -1,5 +1,6 @@
 
 USBMODE ?= 0
+GPIOMODE ?= 0
 
 ifeq ($(shell bash -c 'type -p icoprog'),)
 SSH_RASPI ?= ssh pi@raspi
@@ -11,8 +12,13 @@ ifeq ($(USBMODE),1)
 icoprog: icoprog.cc
 	gcc -o icoprog -Wall -Os icoprog.cc -D USBMODE -lftdi -lrt -lstdc++
 else
+ifeq ($(GPIOMODE),1)
+icoprog: icoprog.cc
+	gcc -o icoprog -Wall -Os icoprog.cc -D GPIOMODE -lrt -lstdc++
+else
 icoprog: icoprog.cc
 	gcc -o icoprog -Wall -Os icoprog.cc -lwiringPi -lrt -lstdc++
+endif
 endif
 
 example.blif: example.v

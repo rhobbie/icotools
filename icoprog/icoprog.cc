@@ -14,7 +14,9 @@ bool ftdi_verbose = false;
 bool enable_prog_port = false;
 bool enable_data_port = false;
 
-#ifndef USBMODE
+// --------------------------------------------------------------------------------------------
+
+#if !defined(USBMODE) && !defined(GPIOMODE)
 
 #  include <wiringPi.h>
 
@@ -44,7 +46,11 @@ void digitalSync(int usec_delay)
 	usleep(usec_delay);
 }
 
-#else
+#endif
+
+// --------------------------------------------------------------------------------------------
+
+#ifdef USBMODE
 
 #  include <ftdi.h>
 
@@ -329,6 +335,161 @@ void pininfo(const char *name, int pin)
 
 #endif /* USBMODE */
 
+// --------------------------------------------------------------------------------------------
+
+#ifdef GPIOMODE
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+// Pinout for UP-board:
+// https://up-community.org/wiki/Pinout
+
+#  define RPI_ICE_CLK      4 // PIN  7
+#  define RPI_ICE_CDONE   27 // PIN 13
+#  define RPI_ICE_MOSI     5 // PIN 29
+#  define RPI_ICE_MISO     6 // PIN 31
+#  define LOAD_FROM_FLASH 13 // PIN 33
+#  define RPI_ICE_CRESET  26 // PIN 37
+#  define RPI_ICE_CS       8 // PIN 24
+#  define RPI_ICE_SELECT  12 // PIN 32
+
+#  define RASPI_D8  17 // PIN 11
+#  define RASPI_D7  18 // PIN 12
+#  define RASPI_D6  22 // PIN 15
+#  define RASPI_D5  23 // PIN 16
+#  define RASPI_D4  10 // PIN 19
+#  define RASPI_D3   9 // PIN 21
+#  define RASPI_D2   7 // PIN 26
+#  define RASPI_D1  19 // PIN 35
+#  define RASPI_D0  16 // PIN 36
+#  define RASPI_DIR 20 // PIN 38
+#  define RASPI_CLK 21 // PIN 40
+
+#  define INPUT 0
+#  define OUTPUT 1
+
+#  define LOW 0
+#  define HIGH 1
+
+int gpio_direction[32];
+int gpio_value[32];
+
+int gpio_direction_fds[32];
+int gpio_value_fds[32];
+
+void wiringPiSetup()
+{
+	for (int i = 0; i < 32; i++) {
+		gpio_direction[i] = -1;
+		gpio_value[i] = -1;
+		gpio_direction_fds[i] = -1;
+		gpio_value_fds[i] = -1;
+	}
+}
+
+void my_write(int fd, const void *buffer, int n)
+{
+	int rc = write(fd, buffer, n);
+
+	if (rc != n) {
+		fprintf(stderr, "Unexpected GPIO write() error.\n");
+		exit(1);
+	}
+}
+
+void pinSetup(int pin)
+{
+	if (gpio_direction_fds[pin] < 0)
+	{
+		char buffer[4096];
+		int f, n;
+
+		f = open("/sys/class/gpio/export", O_WRONLY);
+		n = snprintf(buffer, 4096, "%d", pin);
+		my_write(f, buffer, n);
+		close(f);
+
+		snprintf(buffer, 4096, "/sys/class/gpio/gpio%d/direction", pin);
+		gpio_direction_fds[pin] = open(buffer, O_WRONLY);
+
+		snprintf(buffer, 4096, "/sys/class/gpio/gpio%d/value", pin);
+		gpio_value_fds[pin] = open(buffer, O_RDONLY);
+
+		my_write(gpio_direction_fds[pin], "in\n", 3);
+		gpio_direction[pin] = 0;
+		gpio_value[pin] = 0;
+	}
+}
+
+void pinMode(int pin, int dir)
+{
+	pinSetup(pin);
+
+	if (dir == INPUT)
+	{
+		if (gpio_direction[pin] == 0)
+			return;
+
+		my_write(gpio_direction_fds[pin], "in\n", 3);
+		gpio_direction[pin] = 0;
+	}
+	else
+	{
+		if (gpio_direction[pin] == 1)
+			return;
+
+		if (gpio_value[pin])
+			my_write(gpio_direction_fds[pin], "high\n", 5);
+		else
+			my_write(gpio_direction_fds[pin], "low\n", 4);
+
+		gpio_direction[pin] = 1;
+	}
+}
+
+void digitalWrite(int pin, int val)
+{
+	pinSetup(pin);
+	gpio_value[pin] = (val != LOW);
+
+	if (gpio_direction[pin] == 1) {
+		if (gpio_value[pin])
+			my_write(gpio_direction_fds[pin], "high\n", 5);
+		else
+			my_write(gpio_direction_fds[pin], "low\n", 4);
+	}
+}
+
+int digitalRead(int pin)
+{
+	pinSetup(pin);
+
+	if (gpio_direction[pin] == 0)
+	{
+		char buffer[4096];
+		int n;
+
+		lseek(gpio_value_fds[pin], 0, SEEK_SET);
+		n = read(gpio_value_fds[pin], buffer, 4095);
+
+		if (n > 0)
+			gpio_value[pin] = buffer[0] != '0';
+	}
+
+	return gpio_value[pin] ? HIGH : LOW;;
+}
+
+void digitalSync(int usec_delay)
+{
+	usleep(usec_delay);
+}
+
+#endif /* GPIOMODE */
+
+// --------------------------------------------------------------------------------------------
+
 bool send_zero = false;
 bool recv_zero = false;
 char current_send_recv_mode = 0;
@@ -408,7 +569,7 @@ void prog_bitstream(bool reset_only = false)
 	}
 
 #ifndef USBMODE
-	while (1)
+	for (int k = 0;; k++)
 	{
 		int byte = getchar();
 		if (byte < 0)
@@ -418,6 +579,9 @@ void prog_bitstream(bool reset_only = false)
 			digitalWrite(RPI_ICE_CLK, LOW);
 			digitalWrite(RPI_ICE_CLK, HIGH);
 		}
+
+		if (verbose && (k % 1024) == 1023)
+			printf("%3d kB written.\n", k / 1024);
 	}
 
 	for (int i = 0; i < 49; i++) {
@@ -765,7 +929,9 @@ void read_flashmem(int n)
 	fprintf(stderr, "\n");
 	spi_end();
 
-	fprintf(stderr, "reading %.2fkB..\n", double(n) / 1024);
+	if (n > 0)
+		fprintf(stderr, "reading %.2fkB..\n", double(n) / 1024);
+
 	for (int addr = 0; addr < n; addr += 256) {
 		uint8_t buffer[256];
 		flash_read(addr, buffer, std::min(256, n - addr));

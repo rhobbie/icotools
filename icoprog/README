@@ -66,6 +66,17 @@ Linux PC with the make parameter `USBMODE=1` for this hardware setup:
 	cd icotools/icoprog && make USBMODE=1 install
 
 
+Installing (UP Board)
+=====================
+
+The UP Board is a Raspberry PI compatible X86 single-board computer. Build
+IcoProg on the UP Board with the make parameter `GPIOMODE=1`:
+
+	cd $HOME
+	git clone https://github.com/cliffordwolf/icotools.git
+	cd icotools/icoprog && make GPIOMODE=1 install
+
+
 Next Steps
 ==========
 
