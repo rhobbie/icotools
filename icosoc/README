@@ -80,8 +80,8 @@ The following statements are supported in the global section:
 board <board_name>
 ------------------
 
-Sets the board type. Currently supported values are "icoboard_beta"
-and "icoboard_gamma".
+Sets the board type. Currently supported values are "icoboard_gamma"
+and "icoboard".
 
 compressed_isa
 --------------
