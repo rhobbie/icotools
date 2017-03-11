@@ -696,7 +696,7 @@ if len(debug_signals):
     wire debug_enable;
     wire debug_trigger;
     wire debug_triggered;
-    wire [30:0] debug_data;
+    wire [%d:0] debug_data;
 
     icosoc_debugger #(
         .WIDTH(%d),
@@ -721,7 +721,7 @@ if len(debug_signals):
     assign debug_enable = 1;
     assign debug_trigger = 1;
 
-    assign debug_data = {""" % (len(debug_signals), debug_depth, debug_trigat, debug_mode))
+    assign debug_data = {""" % (len(debug_signals)-1, len(debug_signals), debug_depth, debug_trigat, debug_mode))
 
     idx = len(debug_signals)-1
     for label, expr in sorted(debug_signals.items(), key=(lambda item: re.sub(r"\d+", (lambda match: "%05d" % int(match.group(0))), item[0]))):
