@@ -8,8 +8,8 @@ uint32_t colors[9] = {
 	0xff0000,
 	0x00ffff,
 	0x00ff00,
-	0xff00ff,
-	0x0000ff,
+	0x660066,
+	0x2222ff,
 	0xffff00,
 	0xff0000,
 	0xffffff
@@ -121,20 +121,18 @@ int main()
 			case '.': banner_data[96*y+x] = 0x000000; break;
 			case '#': banner_data[96*y+x] = 0xff0000; break;
 			case '*': banner_data[96*y+x] = 0x00ff00; break;
-			case '@': banner_data[96*y+x] = 0x0000ff; break;
+			case '@': banner_data[96*y+x] = 0x2222ff; break;
 		}
 	
-	for (int x = 0; x < 14; x++) {
-		icosoc_panel_setpixel(1+x, 30, 128, 128, 128);
-		icosoc_panel_setpixel(17+x, 30, 128, 128, 128);
-		icosoc_panel_setpixel(9+x, 21, 128, 128, 128);
+	for (int x = 0; x < 16; x++) {
+		icosoc_panel_setpixel(   x, 30, 64, 64, 64);
+		icosoc_panel_setpixel(16+x, 30, 64, 64, 64);
+		icosoc_panel_setpixel( 8+x, 21, 64, 64, 64);
 	}
 
-	while (1)
-	{
+	while (1) {
 		hanoi(0, 2, 1, 6);
-		hanoi(2, 1, 0, 6);
-		hanoi(1, 0, 2, 6);
+		hanoi(2, 0, 1, 6);
 	}
 }
 
