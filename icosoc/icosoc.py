@@ -475,8 +475,8 @@ icosoc_v["30-raspif"].append("""
     wire [7:0] send_ep3_data = 'bx;
 
     // trigger lines
-    wire trigger_0;  // debugger
-    wire trigger_1;  // unused
+    wire trigger_0;  // unused
+    wire trigger_1;  // debugger
     wire trigger_2;  // unused
     wire trigger_3;  // unused
 
