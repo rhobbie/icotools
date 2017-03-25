@@ -659,6 +659,7 @@ uint32_t spi_xfer(uint32_t data, int nbits = 8)
 	{
 		digitalWrite(RPI_ICE_MOSI, (data & (1 << i)) ? HIGH : LOW);
 
+		digitalSync(1);
 		if (digitalRead(RPI_ICE_MISO) == HIGH)
 			rdata |= 1 << i;
 
