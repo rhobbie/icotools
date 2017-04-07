@@ -7,14 +7,15 @@ boot a Raspberry Pi from that card. E.g. assuming the SD card is /dev/sdf:
 
 	$ sudo dd bs=4M if=2017-03-02-raspbian-jessie.img of=/dev/sdf
 
-2. On that Raspberry Pi:
+2. Boot raspberry. Disable X11 in raspi-config (to free the 30% mem used by
+the desktop environment). Reboot and run this commands in the text console:
 
 	$ git clone https://github.com/cliffordwolf/icotools.git icotools_tmp
 	$ cd icotools_tmp/makeimg/
 	$ sudo bash ./build.sh
 
-This will run for a couple of hours. You will need a heat sink on the Raspberry Pi
-CPU and maybe even air cooling with a little fan while running this script.
+You will need a heat sink on the Raspberry Pi CPU. Do not run the build script
+with a HAT attached, as this will negatively impact CPU cooling.
 
 3. Copy the generated archive.tgz file back to the PC.
 

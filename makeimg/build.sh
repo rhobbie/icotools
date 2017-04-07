@@ -13,10 +13,11 @@ bash build-icotools.sh
 bash build-icestorm.sh
 bash build-riscv.sh
 
-git clone https://github.com/cliffordwolf/icotools.git $HOME/icotools
+rm -rf /home/pi/icotools
+git clone https://github.com/cliffordwolf/icotools.git /home/pi/icotools
 chown -R --reference=$HOME $HOME/icotools
 
 tar --numeric-owner -C / -cvzf archive.tgz \
 	/usr/local/{bin,share/arachne-pnr,share/icebox,share/yosys} \
-	/opt/riscv32{i,ic,im,imc} $HOME/icotools
+	/opt/riscv32{i,ic,im,imc} /home/pi/icotools
 
