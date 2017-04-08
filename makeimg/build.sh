@@ -15,7 +15,7 @@ bash build-riscv.sh
 
 rm -rf /home/pi/icotools
 git clone https://github.com/cliffordwolf/icotools.git /home/pi/icotools
-chown -R --reference=$HOME $HOME/icotools
+chown -R --reference=/home/pi /home/pi/icotools
 
 tar --numeric-owner -C / -cvzf archive.tgz \
 	/usr/local/{bin,share/arachne-pnr,share/icebox,share/yosys} \
