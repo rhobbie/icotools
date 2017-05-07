@@ -10,6 +10,7 @@
 
 bool verbose = false;
 bool ftdi_verbose = false;
+bool got_error = false;
 
 bool enable_prog_port = false;
 bool enable_data_port = false;
@@ -510,8 +511,10 @@ void fpga_reset()
 	digitalSync(2000);
 	digitalWrite(RPI_ICE_CRESET, HIGH);
 	digitalSync(500000);
-	if (digitalRead(RPI_ICE_CDONE) != HIGH)
+	if (digitalRead(RPI_ICE_CDONE) != HIGH) {
 		fprintf(stderr, "Warning: cdone is low\n");
+		got_error = true;
+	}
 }
 
 int get_time_ms()
@@ -632,7 +635,9 @@ void prog_bitstream(bool reset_only = false)
 			fprintf(stderr, "cdone (after %3d ms): %s\n", i, digitalRead(RPI_ICE_CDONE) == HIGH ? "high" : "low");
 	}
 #else
-	fprintf(stderr, "cdone: %s\n", digitalRead(RPI_ICE_CDONE) == HIGH ? "high" : "low");
+	bool cdone_high = digitalRead(RPI_ICE_CDONE) == HIGH;
+	fprintf(stderr, "cdone: %s\n", cdone_high ? "high" : "low");
+	if (!cdone_high) got_error = true;
 #endif
 }
 
@@ -1793,6 +1798,6 @@ int main(int argc, char **argv)
 #endif
 #endif
 
-	return 0;
+	return got_error ? 1 : 0;
 }
 
