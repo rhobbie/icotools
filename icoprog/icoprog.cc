@@ -196,6 +196,12 @@ void my_ftdi_setup(struct ftdi_context *ftdi, enum ftdi_interface interface, con
 		exit(1);
 	}
 
+	/* 1 is the fastest polling, it means 1 kHz polling */
+	if (ftdi_set_latency_timer(ftdi, 1) < 0) {
+		fprintf(stderr, "Failed to set latency timer (%s).\n", ftdi_get_error_string(ftdi));
+		exit(1);
+	}
+
 	if (ftdi_set_bitmode(ftdi, 0xff, BITMODE_MPSSE) < 0) {
 		fprintf(stderr, "Failed set BITMODE_MPSSE on IcoBoard USB baseboard (interface %s).\n", ifname);
 		exit(1);
