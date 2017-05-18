@@ -1,0 +1,35 @@
+set_io clk_100mhz 49
+
+set_io gpio_0  141
+set_io gpio_1  139
+set_io gpio_2  138
+set_io gpio_3  137
+set_io gpio_4  136
+set_io gpio_5  135
+set_io gpio_6  134
+set_io gpio_7  130
+set_io gpio_8   55
+set_io gpio_9   56
+set_io gpio_10  47
+set_io gpio_11  48
+set_io gpio_12  44
+set_io gpio_13  45
+set_io gpio_14  42
+set_io gpio_15  43
+set_io gpio_16  41
+set_io gpio_17  39
+set_io gpio_18  38
+set_io gpio_19  37
+set_io gpio_20   1
+set_io gpio_21 144
+set_io gpio_22 143
+set_io gpio_23 142
+set_io gpio_24  21
+set_io gpio_25  20
+set_io gpio_26   8
+set_io gpio_27   7
+set_io gpio_28  26
+set_io gpio_29  29
+set_io gpio_30  28
+set_io gpio_31  52
+
