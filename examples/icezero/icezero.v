@@ -2,6 +2,7 @@
 
 module top (
 	`OUTPUT_PINS
+	output led1, led2, led3,
 	input clk_100mhz
 );
 	// Clock Generator
@@ -54,4 +55,28 @@ module top (
 			romaddr <= romaddr + 1;
 		end
 	end
+
+	// Blink LEDs
+
+	reg [22:0] led_prescaler = 0;
+	reg [31:0] xorshift32rng_state = 0;
+
+	function [31:0] xorshift32rng_next;
+		input [31:0] old_state;
+	begin
+		xorshift32rng_next = old_state ^ (old_state << 13) ^ !old_state;
+		xorshift32rng_next = xorshift32rng_next ^ (xorshift32rng_next >> 17);
+		xorshift32rng_next = xorshift32rng_next ^ (xorshift32rng_next << 5);
+	end endfunction
+
+	always @(posedge clk) begin
+		led_prescaler <= led_prescaler + 1;
+		if (led_prescaler == 0) begin
+			xorshift32rng_state <= xorshift32rng_next(xorshift32rng_state);
+		end
+	end
+
+	assign led1 = xorshift32rng_state[0];
+	assign led2 = xorshift32rng_state[1];
+	assign led3 = xorshift32rng_state[2];
 endmodule

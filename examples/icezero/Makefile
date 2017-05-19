@@ -1,8 +1,14 @@
 
 all: icezero.bin
 
-prog: icezero.bin
-	python ice_zero_prog.py icezero.bin
+prog: icezero.bin icezprog
+	./icezprog icezero.bin
+
+reset: icezprog
+	./icezprog .
+
+icezprog: icezprog.c
+	gcc -o icezprog -Wall -Os icezprog.c -lwiringPi -lrt -lstdc++
 
 icezero.blif: icezero.v memdata.dat defines.vh
 	yosys -p 'synth_ice40 -top top -blif icezero.blif' icezero.v
