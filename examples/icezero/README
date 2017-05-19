@@ -5,5 +5,8 @@ Simple example project for the IceZero Board
 This example design outputs the pin description for each IO pin on that IO pin
 using 9600 baud TTL-level RS232 signaling (+3.3V, non-inverted).
 
-Programming script from https://github.com/blackmesalabs/ice_zero_prog.
+This example comes with its own IceZero programming tool (icezprog.c).
+
+Original programming script by Kevin M. Hubbard can be found here:
+https://github.com/blackmesalabs/ice_zero_prog
 
