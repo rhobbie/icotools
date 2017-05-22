@@ -45,7 +45,7 @@ void spi_end()
 }
 
 #define uwait_barrier_sync() do { int k; \
-		for (k = 0; k < 32; k++) asm volatile("": : :"memory"); \
+		for (k = 0; k < 100; k++) asm volatile("" : : : "memory"); \
 		__sync_synchronize(); } while(0)
 
 uint32_t spi_xfer(uint32_t data, int nbits)
@@ -210,7 +210,9 @@ int main(int argc, char **argv)
 {
 	if (argc != 2 || (argv[1][0] == '-' && argv[1][1]) || !argv[1][0]) {
 		printf("Usage: %s <binfile>  ... program <binfile> to IceZero flash\n", argv[0]);
+		printf("       %s -          ... program stdin to IceZero flash\n", argv[0]);
 		printf("       %s .          ... erase first sector of IceZero flash\n", argv[0]);
+		printf("       %s ..         ... just restart the FPGA\n", argv[0]);
 		return 1;
 	}
 
@@ -228,8 +230,11 @@ int main(int argc, char **argv)
 	digitalWrite(CFG_SO,  LOW);
 	digitalWrite(CFG_RST, LOW);
 
-	flash_power_up();
-	flash_read_id();
+	if (strcmp(argv[1], ".."))
+	{
+		flash_power_up();
+		flash_read_id();
+	}
 
 	if (!strcmp(argv[1], "."))
 	{
@@ -242,6 +247,7 @@ int main(int argc, char **argv)
 		flash_wrsector(0, buffer, sizeof(buffer));
 	}
 	else
+	if (strcmp(argv[1], ".."))
 	{
 		int addr = 0, size = 0;
 		char buffer[64*1024];
