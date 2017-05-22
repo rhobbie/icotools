@@ -47,16 +47,23 @@ void spi_end()
 uint32_t spi_xfer(uint32_t data, int nbits)
 {
 	uint32_t rdata = 0;
-	int i;
+	int i, j;
 
 	for (i = nbits-1; i >= 0; i--)
 	{
 		digitalWrite(CFG_SO, (data & (1 << i)) ? HIGH : LOW);
 
+		// wait just a little bit
+		for (j = 0; j < 100; j++) asm volatile ("");
+
 		if (digitalRead(CFG_SI) == HIGH)
 			rdata |= 1 << i;
 
 		digitalWrite(CFG_SCK, HIGH);
+
+		// wait just a little bit
+		for (j = 0; j < 100; j++) asm volatile ("");
+
 		digitalWrite(CFG_SCK, LOW);
 	}
 
@@ -199,7 +206,7 @@ restart:
 
 int main(int argc, char **argv)
 {
-	if (argc != 2 || argv[1][0] == '-' || argv[1][0] == 0) {
+	if (argc != 2 || (argv[1][0] == '-' && argv[1][1]) || !argv[1][0]) {
 		printf("Usage: %s <binfile>  ... program <binfile> to IceZero flash\n", argv[0]);
 		printf("       %s .          ... erase first sector of IceZero flash\n", argv[0]);
 		return 1;
@@ -237,7 +244,7 @@ int main(int argc, char **argv)
 		int addr = 0, size = 0;
 		char buffer[64*1024];
 
-		FILE *f = fopen(argv[1], "rb");
+		FILE *f = strcmp(argv[1], "-") ? fopen(argv[1], "rb") : stdin;
 
 		if (f == NULL) {
 			printf("Failed to open %s: %s\n", argv[1], strerror(errno));
