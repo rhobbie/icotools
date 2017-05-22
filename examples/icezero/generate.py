@@ -6,7 +6,8 @@ with open("icezero.pcf", "r") as f:
     for line in f:
         line = line.split()
         if len(line) == 3 and line[0] == "set_io" and \
-                line[1] not in ["clk_100mhz", "led1", "led2", "led3"]:
+                line[1] not in ["clk_100mhz", "led1", "led2", "led3"] and \
+                not line[1].startswith("sram_"):
             database.append([line[2], line[1], []])
 
 mem_width = len(database)

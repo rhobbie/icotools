@@ -25,7 +25,14 @@ memdata.dat: generate.py
 
 defines.vh: memdata.dat
 
+testbench: testbench.v icezero.v
+	iverilog -o testbench testbench.v icezero.v ../../icosoc/common/sim_sram.v $(shell yosys-config --datdir/ice40/cells_sim.v)
+
+testbench.vcd: testbench
+	./testbench
+
 clean:
+	rm -f testbench testbench.vcd
 	rm -f icezero.blif icezero.asc icezero.bin
 	rm -f memdata.dat defines.vh
 
