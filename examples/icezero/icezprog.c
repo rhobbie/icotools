@@ -44,26 +44,28 @@ void spi_end()
 	// fprintf(stderr, "SPI_END\n");
 }
 
+#define uwait_barrier_sync() do { int k; \
+		for (k = 0; k < 32; k++) asm volatile("": : :"memory"); \
+		__sync_synchronize(); } while(0)
+
 uint32_t spi_xfer(uint32_t data, int nbits)
 {
 	uint32_t rdata = 0;
-	int i, j;
+	int i;
 
 	for (i = nbits-1; i >= 0; i--)
 	{
+		uwait_barrier_sync();
 		digitalWrite(CFG_SO, (data & (1 << i)) ? HIGH : LOW);
 
-		// wait just a little bit
-		for (j = 0; j < 100; j++) asm volatile ("");
-
+		uwait_barrier_sync();
 		if (digitalRead(CFG_SI) == HIGH)
 			rdata |= 1 << i;
 
+		uwait_barrier_sync();
 		digitalWrite(CFG_SCK, HIGH);
 
-		// wait just a little bit
-		for (j = 0; j < 100; j++) asm volatile ("");
-
+		uwait_barrier_sync();
 		digitalWrite(CFG_SCK, LOW);
 	}
 
