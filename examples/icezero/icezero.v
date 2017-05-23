@@ -32,12 +32,14 @@ module top (
 
 	// Clock Generator
 
-	wire clk_25mhz;
-	wire pll_locked;
+	wire clk, pll_locked;
 
 `ifdef TESTBENCH
-	assign clk_25mhz = clk_100mhz, pll_locked = 1;
+	assign clk = clk_100mhz, pll_locked = 1;
 `else
+	wire clk_16mhz;
+	reg clk_8mhz = 0, clk_4mhz = 0, clk_2mhz = 0;
+
 	SB_PLL40_PAD #(
 		.FEEDBACK_PATH("SIMPLE"),
 		.DELAY_ADJUSTMENT_MODE_FEEDBACK("FIXED"),
@@ -45,20 +47,23 @@ module top (
 		.PLLOUT_SELECT("GENCLK"),
 		.FDA_FEEDBACK(4'b1111),
 		.FDA_RELATIVE(4'b1111),
-		.DIVR(4'b0000),
-		.DIVF(7'b0000111),
-		.DIVQ(3'b101),
-		.FILTER_RANGE(3'b101)
+		.DIVR(4'b0011),		// DIVR =  3
+		.DIVF(7'b0101000),	// DIVF = 40
+		.DIVQ(3'b110),		// DIVQ =  6
+		.FILTER_RANGE(3'b010)	// FILTER_RANGE = 2
 	) pll (
 		.PACKAGEPIN   (clk_100mhz),
-		.PLLOUTGLOBAL (clk_25mhz ),
+		.PLLOUTGLOBAL (clk_16mhz ),
 		.LOCK         (pll_locked),
 		.BYPASS       (1'b0      ),
 		.RESETB       (1'b1      )
 	);
-`endif
 
-	wire clk = clk_25mhz;
+	// always @(posedge clk_16mhz) clk_8mhz <= !clk_8mhz;
+	// always @(posedge clk_8mhz) clk_4mhz <= !clk_4mhz;
+	// always @(posedge clk_4mhz) clk_2mhz <= !clk_2mhz;
+	assign clk = clk_16mhz;
+`endif
 
 	// Reset Generator
 
@@ -66,7 +71,7 @@ module top (
 	reg resetn = 0;
 
 	always @(posedge clk) begin
-		resetstate <= pll_locked ? resetstate + (&resetstate ? 0 : 1) : 0;
+		resetstate <= pll_locked ? resetstate + !(&resetstate) : 0;
 		resetn <= &resetstate;
 	end
 
@@ -87,9 +92,14 @@ module top (
 
 	reg [11:0] prescaler = 0;
 
+	localparam [11:0] prescaler_max_16mhz = 1667;
+	localparam [11:0] prescaler_max_8mhz = 833;
+	localparam [11:0] prescaler_max_4mhz = 417;
+	localparam [11:0] prescaler_max_2mhz = 208;
+
 	always @(posedge clk) begin
 		prescaler <= prescaler + 1;
-		if (prescaler == 2604) begin
+		if (prescaler == prescaler_max_16mhz) begin
 			prescaler <= 0;
 			romaddr <= romaddr + 1;
 		end
@@ -124,7 +134,7 @@ module top (
 			sram_oe <= 1;
 			sram_addr <= 0;
 			sram_dout <= 0;
-			{led1, led2, led3} <= ~0;
+			{led1, led2, led3} <= 1;
 			memtest_addr <= 0;
 			memtest_itercount <= 0;
 			memtest_state <= 0;
@@ -154,13 +164,12 @@ module top (
 				end
 				4: begin
 					memtest_addr <= memtest_addr + 1;
-					if (sram_din != memtest_hash[15:0]) begin
+					if (sram_din[15:0] != memtest_hash[15:0]) begin
 						memtest_state <= 5;
 					end else
 					if (&memtest_addr) begin
 						memtest_state <= 0;
-						if (memtest_hash[8:6] && !memtest_itercount[1:0])
-							{led1, led2, led3} <= memtest_hash[8:6];
+						{led1, led2, led3} <= {led3, led1, led2};
 						memtest_itercount <= memtest_itercount + 1;
 					end else begin
 						memtest_state <= 3;

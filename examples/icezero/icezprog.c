@@ -44,9 +44,13 @@ void spi_end()
 	// fprintf(stderr, "SPI_END\n");
 }
 
-#define uwait_barrier_sync() do { int k; \
-		for (k = 0; k < 100; k++) asm volatile("" : : : "memory"); \
-		__sync_synchronize(); } while(0)
+void uwait_barrier_sync(int n)
+{
+	int k;
+	for (k = 0; k < n; k++)
+		asm volatile("" : : : "memory");
+	__sync_synchronize();
+}
 
 uint32_t spi_xfer(uint32_t data, int nbits)
 {
@@ -55,17 +59,17 @@ uint32_t spi_xfer(uint32_t data, int nbits)
 
 	for (i = nbits-1; i >= 0; i--)
 	{
-		uwait_barrier_sync();
+		uwait_barrier_sync(10);
 		digitalWrite(CFG_SO, (data & (1 << i)) ? HIGH : LOW);
 
-		uwait_barrier_sync();
+		uwait_barrier_sync(10);
 		if (digitalRead(CFG_SI) == HIGH)
 			rdata |= 1 << i;
 
-		uwait_barrier_sync();
+		uwait_barrier_sync(10);
 		digitalWrite(CFG_SCK, HIGH);
 
-		uwait_barrier_sync();
+		uwait_barrier_sync(10);
 		digitalWrite(CFG_SCK, LOW);
 	}
 
