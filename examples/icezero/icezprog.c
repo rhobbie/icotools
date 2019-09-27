@@ -246,7 +246,7 @@ int main(int argc, char **argv)
 		int i;
 
 		for (i = 0; i < (int)sizeof(buffer); i++)
-			buffer[0] = 0xff;
+			buffer[i] = 0xff;
 
 		flash_wrsector(0, buffer, sizeof(buffer));
 	}
