@@ -32,6 +32,14 @@
 #define CFG_RST  25 // PIN 37, GPIO.25
 #define CFG_DONE 21 // PIN 29, GPIO.21
 
+void uwait_barrier_sync(int n)
+{
+	int k;
+	for (k = 0; k < n; k++)
+		asm volatile("" : : : "memory");
+	__sync_synchronize();
+}
+
 void spi_begin()
 {
 	digitalWrite(CFG_SS, LOW);
@@ -41,16 +49,10 @@ void spi_begin()
 void spi_end()
 {
 	digitalWrite(CFG_SS, HIGH);
+	uwait_barrier_sync(40);
 	// fprintf(stderr, "SPI_END\n");
 }
 
-void uwait_barrier_sync(int n)
-{
-	int k;
-	for (k = 0; k < n; k++)
-		asm volatile("" : : : "memory");
-	__sync_synchronize();
-}
 
 uint32_t spi_xfer(uint32_t data, int nbits)
 {
@@ -59,17 +61,12 @@ uint32_t spi_xfer(uint32_t data, int nbits)
 
 	for (i = nbits-1; i >= 0; i--)
 	{
-		uwait_barrier_sync(10);
 		digitalWrite(CFG_SO, (data & (1 << i)) ? HIGH : LOW);
-
-		uwait_barrier_sync(10);
+		uwait_barrier_sync(20);
+		digitalWrite(CFG_SCK, HIGH);
 		if (digitalRead(CFG_SI) == HIGH)
 			rdata |= 1 << i;
-
-		uwait_barrier_sync(10);
-		digitalWrite(CFG_SCK, HIGH);
-
-		uwait_barrier_sync(10);
+		uwait_barrier_sync(20);
 		digitalWrite(CFG_SCK, LOW);
 	}
 
