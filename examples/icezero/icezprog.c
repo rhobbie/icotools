@@ -23,15 +23,24 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
-#include <wiringPi.h>
+#include <gpiod.h>
 
-#define CFG_SS   26 // PIN 32, GPIO.26
-#define CFG_SCK  27 // PIN 36, GPIO.27
-#define CFG_SI   22 // PIN 31, GPIO.22
-#define CFG_SO   23 // PIN 33, GPIO.23
-#define CFG_RST  25 // PIN 37, GPIO.25
-#define CFG_DONE 21 // PIN 29, GPIO.21
+#define CFG_SS   12 // PIN 32, GPIO.12
+#define CFG_SCK  16 // PIN 36, GPIO.16
+#define CFG_SI   6  // PIN 31, GPIO.6
+#define CFG_SO   13 // PIN 33, GPIO.13
+#define CFG_RST  26 // PIN 37, GPIO.26
+#define CFG_DONE 5  // PIN 29, GPIO.5
 
+struct gpiod_chip *chip;
+struct gpiod_line *line_CFG_SS;
+struct gpiod_line *line_CFG_SCK;
+struct gpiod_line *line_CFG_SI;
+struct gpiod_line *line_CFG_SO;
+struct gpiod_line *line_CFG_RST;
+struct gpiod_line *line_CFG_DONE;
+#define LOW 0
+#define HIGH 1
 void uwait_barrier_sync(int n)
 {
 	int k;
@@ -42,13 +51,13 @@ void uwait_barrier_sync(int n)
 
 void spi_begin()
 {
-	digitalWrite(CFG_SS, LOW);
+	gpiod_line_set_value(line_CFG_SS, LOW);
 	// fprintf(stderr, "SPI_BEGIN\n");
 }
 
 void spi_end()
 {
-	digitalWrite(CFG_SS, HIGH);
+	gpiod_line_set_value(line_CFG_SS, HIGH);
 	uwait_barrier_sync(40);
 	// fprintf(stderr, "SPI_END\n");
 }
@@ -61,13 +70,13 @@ uint32_t spi_xfer(uint32_t data, int nbits)
 
 	for (i = nbits-1; i >= 0; i--)
 	{
-		digitalWrite(CFG_SO, (data & (1 << i)) ? HIGH : LOW);
+		gpiod_line_set_value(line_CFG_SO, (data & (1 << i)) ? HIGH : LOW);
 		uwait_barrier_sync(20);
-		digitalWrite(CFG_SCK, HIGH);
-		if (digitalRead(CFG_SI) == HIGH)
+		gpiod_line_set_value(line_CFG_SCK, HIGH);
+		if (gpiod_line_get_value(line_CFG_SI) == HIGH)
 			rdata |= 1 << i;
 		uwait_barrier_sync(20);
-		digitalWrite(CFG_SCK, LOW);
+		gpiod_line_set_value(line_CFG_SCK, LOW);
 	}
 
 	// fprintf(stderr, "SPI:%d %02x %02x\n", nbits, data, rdata);
@@ -217,19 +226,21 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	wiringPiSetup();
+	chip = gpiod_chip_open("/dev/gpiochip0");
 
-	pinMode(CFG_SS,   OUTPUT);
-	pinMode(CFG_SCK,  OUTPUT);
-	pinMode(CFG_SI,   INPUT);
-	pinMode(CFG_SO,   OUTPUT);
-	pinMode(CFG_RST,  OUTPUT);
-	pinMode(CFG_DONE, INPUT);
+	line_CFG_SS=gpiod_chip_get_line(chip,CFG_SS);
+	line_CFG_SCK=gpiod_chip_get_line(chip,CFG_SCK);
+	line_CFG_SI=gpiod_chip_get_line(chip,CFG_SI);
+	line_CFG_SO=gpiod_chip_get_line(chip,CFG_SO);
+	line_CFG_RST=gpiod_chip_get_line(chip,CFG_RST);
+	line_CFG_DONE=gpiod_chip_get_line(chip,CFG_DONE);
 
-	digitalWrite(CFG_SS,  HIGH);
-	digitalWrite(CFG_SCK, LOW);
-	digitalWrite(CFG_SO,  LOW);
-	digitalWrite(CFG_RST, LOW);
+	gpiod_line_request_output(line_CFG_SS,argv[0],HIGH);
+	gpiod_line_request_output(line_CFG_SCK,argv[0],LOW);
+	gpiod_line_request_input(line_CFG_SI,argv[0]);
+	gpiod_line_request_output(line_CFG_SO,argv[0],LOW);
+	gpiod_line_request_output(line_CFG_RST,argv[0],LOW);
+	gpiod_line_request_input(line_CFG_DONE,argv[0]);
 
 	if (strcmp(argv[1], ".."))
 	{
@@ -275,13 +286,13 @@ int main(int argc, char **argv)
 		} while (size == sizeof(buffer));
 	}
 
-	digitalWrite(CFG_RST, LOW);
+	gpiod_line_set_value(line_CFG_RST, LOW);
 	usleep(2000);
 
-	digitalWrite(CFG_RST, HIGH);
+	gpiod_line_set_value(line_CFG_RST, HIGH);
 	usleep(500000);
 
-	if (digitalRead(CFG_DONE) != HIGH) {
+	if (gpiod_line_get_value(line_CFG_DONE) != HIGH) {
 		printf("Warning: cdone is low\n");
 		return 1;
 	}

@@ -8,7 +8,7 @@ reset: icezprog
 	./icezprog .
 
 icezprog: icezprog.c
-	gcc -o icezprog -Wall -Os icezprog.c -lwiringPi -lrt -lstdc++
+	gcc -o icezprog -Wall -Os icezprog.c -lgpiod -lrt -lstdc++
 
 icezero.blif: icezero.v memdata.dat defines.vh
 	yosys -p 'synth_ice40 -top top -blif icezero.blif' icezero.v
