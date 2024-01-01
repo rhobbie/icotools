@@ -7,48 +7,74 @@
 #include <termios.h>
 #include <assert.h>
 #include <sys/time.h>
-#include <wiringPi.h>
+#include <gpiod.h>
 #include "libxsvf.h"
 
-#define RPI_ICE_CLK      7 // PIN  7, GPIO.7
-#define RPI_ICE_CDONE    2 // PIN 13, GPIO.2
-#define RPI_ICE_MOSI    21 // PIN 29, GPIO.21
-#define RPI_ICE_MISO    22 // PIN 31, GPIO.22
-#define LOAD_FROM_FLASH 23 // PIN 33, GPIO.23
-#define RPI_ICE_CRESET  25 // PIN 37, GPIO.25
-#define RPI_ICE_CS      10 // PIN 24, CE0
-#define RPI_ICE_SELECT  26 // PIN 32, GPIO.26
+#define RPI_ICE_CLK      4 // PIN  7, GPIO.4
+#define RPI_ICE_CDONE   27 // PIN 13, GPIO.27
+#define RPI_ICE_MOSI     5 // PIN 29, GPIO.5
+#define RPI_ICE_MISO     6 // PIN 31, GPIO.6
+#define LOAD_FROM_FLASH 13 // PIN 33, GPIO.13
+#define RPI_ICE_CRESET  26 // PIN 37, GPIO.26
+#define RPI_ICE_CS       8 // PIN 24, CE0
+#define RPI_ICE_SELECT  12 // PIN 32, GPIO.12
 
-#define RASPI_D8   0 // PIN 11, GPIO.0
-#define RASPI_D7   1 // PIN 12, GPIO.1
-#define RASPI_D6   3 // PIN 15, GPIO.3
-#define RASPI_D5   4 // PIN 16, GPIO.4
-#define RASPI_D4  12 // PIN 19, MOSI
-#define RASPI_D3  13 // PIN 21, MISO
-#define RASPI_D2  11 // PIN 26, CE1
-#define RASPI_D1  24 // PIN 35, GPIO.24
-#define RASPI_D0  27 // PIN 36, GPIO.27
-#define RASPI_DIR 28 // PIN 38, GPIO.28
-#define RASPI_CLK 29 // PIN 40, GPIO.29
+#define RASPI_D8  17 // PIN 11, GPIO.17
+#define RASPI_D7  18 // PIN 12, GPIO.18
+#define RASPI_D6  22 // PIN 15, GPIO.22
+#define RASPI_D5  23 // PIN 16, GPIO.23
+#define RASPI_D4  10 // PIN 19, MOSI
+#define RASPI_D3   9 // PIN 21, MISO
+#define RASPI_D2   7 // PIN 26, CE1
+#define RASPI_D1  19 // PIN 35, GPIO.19
+#define RASPI_D0  16 // PIN 36, GPIO.16
+#define RASPI_DIR 20 // PIN 38, GPIO.20
+#define RASPI_CLK 21 // PIN 40, GPIO.21
 
-#define MACHXO2_TDO RPI_ICE_MISO
-#define MACHXO2_TDI RPI_ICE_MOSI
-#define MACHXO2_TCK RPI_ICE_CS
-#define MACHXO2_TMS RPI_ICE_CLK
+char *consumer;
+struct gpiod_chip *chip;
+struct gpiod_line *line_RPI_ICE_CLK;
+struct gpiod_line *line_RPI_ICE_CDONE;
+struct gpiod_line *line_RPI_ICE_MOSI;
+struct gpiod_line *line_RPI_ICE_MISO;
+struct gpiod_line *line_LOAD_FROM_FLASH;
+struct gpiod_line *line_RPI_ICE_CRESET;
+struct gpiod_line *line_RPI_ICE_CS;
+struct gpiod_line *line_RPI_ICE_SELECT;
+
+struct gpiod_line *line_RASPI_D8;
+struct gpiod_line *line_RASPI_D7;
+struct gpiod_line *line_RASPI_D6;
+struct gpiod_line *line_RASPI_D5;
+struct gpiod_line *line_RASPI_D4;
+struct gpiod_line *line_RASPI_D3;
+struct gpiod_line *line_RASPI_D2;
+struct gpiod_line *line_RASPI_D1;
+struct gpiod_line *line_RASPI_D0;
+struct gpiod_line *line_RASPI_DIR;
+struct gpiod_line *line_RASPI_CLK;
+
+#define line_MACHXO2_TDO line_RPI_ICE_MISO
+#define line_MACHXO2_TDI line_RPI_ICE_MOSI
+#define line_MACHXO2_TCK line_RPI_ICE_CS
+#define line_MACHXO2_TMS line_RPI_ICE_CLK
+
+#define LOW 0
+#define HIGH 1
 
 static void io_tms(int val)
 {
-	digitalWrite(MACHXO2_TMS, val ? HIGH : LOW);
+	gpiod_line_set_value(line_MACHXO2_TMS, val ? HIGH : LOW);
 }
 
 static void io_tdi(int val)
 {
-	digitalWrite(MACHXO2_TDI, val ? HIGH : LOW);
+	gpiod_line_set_value(line_MACHXO2_TDI, val ? HIGH : LOW);
 }
 
 static void io_tck(int val)
 {
-	digitalWrite(MACHXO2_TCK, val ? HIGH : LOW);
+	gpiod_line_set_value(line_MACHXO2_TCK, val ? HIGH : LOW);
 }
 
 static void io_sck(int val)
@@ -63,7 +89,7 @@ static void io_trst(int val)
 
 static int io_tdo()
 {
-	return digitalRead(MACHXO2_TDO) == HIGH ? 1 : 0;
+	return gpiod_line_get_value(line_MACHXO2_TDO) == HIGH ? 1 : 0;
 }
 
 static int h_setup(struct libxsvf_host *h)
@@ -199,40 +225,61 @@ static struct libxsvf_host h = {
 
 void reset_inout()
 {
-	pinMode(RPI_ICE_CLK,     INPUT);
-	pinMode(RPI_ICE_CDONE,   INPUT);
-	pinMode(RPI_ICE_MOSI,    INPUT);
-	pinMode(RPI_ICE_MISO,    INPUT);
-	pinMode(LOAD_FROM_FLASH, INPUT);
-	pinMode(RPI_ICE_CRESET,  INPUT);
-	pinMode(RPI_ICE_CS,      INPUT);
-	pinMode(RPI_ICE_SELECT,  INPUT);
+	line_RPI_ICE_CLK=gpiod_chip_get_line(chip,RPI_ICE_CLK);
+	line_RPI_ICE_CDONE=gpiod_chip_get_line(chip,RPI_ICE_CDONE);
+	line_RPI_ICE_MOSI=gpiod_chip_get_line(chip,RPI_ICE_MOSI);
+	line_RPI_ICE_MISO=gpiod_chip_get_line(chip,RPI_ICE_MISO);
+	line_LOAD_FROM_FLASH=gpiod_chip_get_line(chip,LOAD_FROM_FLASH);
+	line_RPI_ICE_CRESET=gpiod_chip_get_line(chip,RPI_ICE_CRESET);
+	line_RPI_ICE_CS=gpiod_chip_get_line(chip,RPI_ICE_CS);
+	line_RPI_ICE_SELECT=gpiod_chip_get_line(chip,RPI_ICE_SELECT);
 
-	pinMode(RASPI_D8, INPUT);
-	pinMode(RASPI_D7, INPUT);
-	pinMode(RASPI_D6, INPUT);
-	pinMode(RASPI_D5, INPUT);
-	pinMode(RASPI_D4, INPUT);
-	pinMode(RASPI_D3, INPUT);
-	pinMode(RASPI_D2, INPUT);
-	pinMode(RASPI_D1, INPUT);
-	pinMode(RASPI_D0, INPUT);
+	line_RASPI_D8=gpiod_chip_get_line(chip,RASPI_D8);
+	line_RASPI_D7=gpiod_chip_get_line(chip,RASPI_D7);
+	line_RASPI_D6=gpiod_chip_get_line(chip,RASPI_D6);
+	line_RASPI_D5=gpiod_chip_get_line(chip,RASPI_D5);
+	line_RASPI_D4=gpiod_chip_get_line(chip,RASPI_D4);
+	line_RASPI_D3=gpiod_chip_get_line(chip,RASPI_D3);
+	line_RASPI_D2=gpiod_chip_get_line(chip,RASPI_D2);
+	line_RASPI_D1=gpiod_chip_get_line(chip,RASPI_D1);
+	line_RASPI_D0=gpiod_chip_get_line(chip,RASPI_D0);
 
-	pinMode(RASPI_DIR, OUTPUT);
-	pinMode(RASPI_CLK, OUTPUT);
+	line_RASPI_DIR=gpiod_chip_get_line(chip,RASPI_DIR);
+	line_RASPI_CLK=gpiod_chip_get_line(chip,RASPI_CLK);
 
-	digitalWrite(RASPI_DIR, LOW);
-	digitalWrite(RASPI_CLK, LOW);
+	gpiod_line_request_input(line_RPI_ICE_CLK,     consumer);
+	gpiod_line_request_input(line_RPI_ICE_CDONE,   consumer);
+	gpiod_line_request_input(line_RPI_ICE_MOSI,    consumer);
+	gpiod_line_request_input(line_RPI_ICE_MISO,    consumer);
+	gpiod_line_request_input(line_LOAD_FROM_FLASH, consumer);
+	gpiod_line_request_input(line_RPI_ICE_CRESET,  consumer);
+	gpiod_line_request_input(line_RPI_ICE_CS,      consumer);
+	gpiod_line_request_input(line_RPI_ICE_SELECT,  consumer);
+
+	gpiod_line_request_input(line_RASPI_D8, consumer);
+	gpiod_line_request_input(line_RASPI_D7, consumer);
+	gpiod_line_request_input(line_RASPI_D6, consumer);
+	gpiod_line_request_input(line_RASPI_D5, consumer);
+	gpiod_line_request_input(line_RASPI_D4, consumer);
+	gpiod_line_request_input(line_RASPI_D3, consumer);
+	gpiod_line_request_input(line_RASPI_D2, consumer);
+	gpiod_line_request_input(line_RASPI_D1, consumer);
+	gpiod_line_request_input(line_RASPI_D0, consumer);
+
+	gpiod_line_request_output(line_RASPI_DIR, consumer,LOW);
+	gpiod_line_request_output(line_RASPI_CLK, consumer,LOW);
+
 }
 
 int main(int argc, char **argv)
 {
-	wiringPiSetup();
+	consumer=argv[0];
+	chip = gpiod_chip_open("/dev/gpiochip0");
 	reset_inout();
 
-	pinMode(MACHXO2_TDI, OUTPUT);
-	pinMode(MACHXO2_TCK, OUTPUT);
-	pinMode(MACHXO2_TMS, OUTPUT);
+	gpiod_line_set_direction_output(line_MACHXO2_TDI,LOW);
+	gpiod_line_set_direction_output(line_MACHXO2_TCK,LOW);
+	gpiod_line_set_direction_output(line_MACHXO2_TMS,LOW);
 
 	printf("Scanning...\n");
 	if (libxsvf_play(&h, LIBXSVF_MODE_SCAN) < 0) {

@@ -1,6 +1,6 @@
 
 mxoprog: mxoprog.c libxsvf.h play.c scan.c svf.c tap.c statename.c
-	gcc -o mxoprog -Wall -Os mxoprog.c play.c scan.c svf.c tap.c statename.c -lwiringPi -lrt
+	gcc -o mxoprog -Wall -Os mxoprog.c play.c scan.c svf.c tap.c statename.c -lgpiod -lrt
 
 install: mxoprog
 	sudo install mxoprog /usr/local/bin/
