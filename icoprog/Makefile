@@ -17,7 +17,7 @@ icoprog: icoprog.cc
 	gcc -o icoprog -Wall -Os icoprog.cc -D GPIOMODE -lrt -lstdc++
 else
 icoprog: icoprog.cc
-	gcc -o icoprog -Wall -Os icoprog.cc -lwiringPi -lrt -lstdc++
+	gcc -o icoprog -Wall -Os icoprog.cc -lgpiod -lrt -lstdc++
 endif
 endif
 

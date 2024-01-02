@@ -38,28 +38,152 @@ bool enable_data_port = false;
 
 #if !defined(USBMODE) && !defined(GPIOMODE)
 
-#  include <wiringPi.h>
+#  include <gpiod.h>
 
-#  define RPI_ICE_CLK      7 // PIN  7, GPIO.7
-#  define RPI_ICE_CDONE    2 // PIN 13, GPIO.2
-#  define RPI_ICE_MOSI    21 // PIN 29, GPIO.21
-#  define RPI_ICE_MISO    22 // PIN 31, GPIO.22
-#  define LOAD_FROM_FLASH 23 // PIN 33, GPIO.23
-#  define RPI_ICE_CRESET  25 // PIN 37, GPIO.25
-#  define RPI_ICE_CS      10 // PIN 24, CE0
-#  define RPI_ICE_SELECT  26 // PIN 32, GPIO.26
+#  define RPI_ICE_CLK      4 // PIN  7, GPIO.4
+#  define RPI_ICE_CDONE   27 // PIN 13, GPIO.27
+#  define RPI_ICE_MOSI     5 // PIN 29, GPIO.5
+#  define RPI_ICE_MISO     6 // PIN 31, GPIO.6
+#  define LOAD_FROM_FLASH 13 // PIN 33, GPIO.13
+#  define RPI_ICE_CRESET  26 // PIN 37, GPIO.26
+#  define RPI_ICE_CS       8 // PIN 24, CE0
+#  define RPI_ICE_SELECT  12 // PIN 32, GPIO.12
 
-#  define RASPI_D8   0 // PIN 11, GPIO.0
-#  define RASPI_D7   1 // PIN 12, GPIO.1
-#  define RASPI_D6   3 // PIN 15, GPIO.3
-#  define RASPI_D5   4 // PIN 16, GPIO.4
-#  define RASPI_D4  12 // PIN 19, MOSI
-#  define RASPI_D3  13 // PIN 21, MISO
-#  define RASPI_D2  11 // PIN 26, CE1
-#  define RASPI_D1  24 // PIN 35, GPIO.24
-#  define RASPI_D0  27 // PIN 36, GPIO.27
-#  define RASPI_DIR 28 // PIN 38, GPIO.28
-#  define RASPI_CLK 29 // PIN 40, GPIO.29
+#  define RASPI_D8  17 // PIN 11, GPIO.17
+#  define RASPI_D7  18 // PIN 12, GPIO.18
+#  define RASPI_D6  22 // PIN 15, GPIO.22
+#  define RASPI_D5  23 // PIN 16, GPIO.23
+#  define RASPI_D4  10 // PIN 19, MOSI
+#  define RASPI_D3   9 // PIN 21, MISO
+#  define RASPI_D2   7 // PIN 26, CE1
+#  define RASPI_D1  19 // PIN 35, GPIO.19
+#  define RASPI_D0  16 // PIN 36, GPIO.16
+#  define RASPI_DIR 20 // PIN 38, GPIO.20
+#  define RASPI_CLK 21 // PIN 40, GPIO.21
+
+#  define INPUT 0
+#  define OUTPUT 1
+
+#  define LOW 0
+#  define HIGH 1
+
+char *consumer;
+struct gpiod_chip *gpio_chip;
+struct gpiod_line *gpio_line[32];
+
+int gpio_direction[32];
+int gpio_value[32];
+
+void wiringPiSetup()
+{
+	gpio_chip = gpiod_chip_open("/dev/gpiochip0");
+	if(gpio_chip==NULL)
+	{
+		perror("gpiod_chip_open");
+		exit(-1);
+	}
+	for (int i = 0; i < 32; i++)
+	{
+		gpio_direction[i] = -1;
+		gpio_value[i] = -1;
+		gpio_line[i] = NULL;
+	}
+}
+
+void pinMode(int pin, int dir)
+{
+	int status;
+	if(gpio_line[pin]==NULL)
+	{
+		gpio_line[pin]=gpiod_chip_get_line(gpio_chip,pin);
+		if(gpio_line[pin]==NULL)
+		{
+			perror("gpiod_chip_get_line");
+			exit(-1);
+		}
+		if(dir==INPUT)
+		{
+			status=gpiod_line_request_input(gpio_line[pin],consumer);
+			if(status!=0)
+			{
+				perror("gpiod_line_request_input");
+				exit(-1);
+			}
+		}
+		else
+		{
+			if(gpio_value[pin]==-1)
+			{
+				gpio_value[pin]=LOW;
+			}
+			status=gpiod_line_request_output(gpio_line[pin],consumer,gpio_value[pin]);
+			if(status!=0)
+			{
+				perror("gpiod_line_request_output");
+				exit(-1);
+			}
+		}
+		gpio_direction[pin]=dir;
+	}
+	else if(gpio_direction[pin]!=dir)
+	{
+		if(dir==INPUT)
+		{
+			status=gpiod_line_set_direction_input(gpio_line[pin]);
+			if(status!=0)
+			{
+				perror("gpiod_line_set_direction_input");
+				exit(-1);
+			}
+		}
+		else
+		{
+			if(gpio_value[pin]==-1)
+			{
+				gpio_value[pin]=LOW;
+			}
+			status=gpiod_line_set_direction_output(gpio_line[pin],gpio_value[pin]);
+			if(status!=0)
+			{
+				perror("gpiod_line_set_direction_output");
+				exit(-1);
+			}
+
+		}
+		gpio_direction[pin]=dir;
+	}
+}
+
+void digitalWrite(int pin, int val)
+{
+	int status;
+	if(gpio_direction[pin]==OUTPUT && gpio_value[pin]!=val)
+	{
+		status=gpiod_line_set_value(gpio_line[pin],val); 
+		if(status==-1)
+		{
+			perror("gpiod_line_set_value");
+			exit(-1);
+		}
+		gpio_value[pin]=val;
+	}
+}
+
+int digitalRead(int pin)
+{
+	int status;
+	if(gpio_direction[pin]==INPUT)
+	{
+		status=gpiod_line_get_value(gpio_line[pin]);
+		if(status==-1)
+		{
+			perror("gpiod_line_get_value");
+			exit(-1);
+		}
+		gpio_value[pin]=status;
+	}
+	return gpio_value[pin];
+}
 
 void digitalSync(int usec_delay)
 {
@@ -1634,6 +1758,9 @@ int main(int argc, char **argv)
 	int pageoffset = 0;
 	char mode = 0;
 
+#if !defined(USBMODE) && !defined(GPIOMODE)
+	consumer=argv[0];
+#endif
 	while ((opt = getopt(argc, argv, "RbEpfeF:TBw:r:c:vzZt:O:V:")) != -1)
 	{
 		switch (opt)
