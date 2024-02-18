@@ -74,6 +74,11 @@ struct gpiod_line *gpio_line[32];
 int gpio_direction[32];
 int gpio_value[32];
 
+int dataport_direction;
+struct gpiod_line_bulk dataport_lines;
+int dataport_values[9];
+unsigned int dataport_pins[9] ={RASPI_D0,RASPI_D1,RASPI_D2,RASPI_D3,RASPI_D4,RASPI_D5,RASPI_D6,RASPI_D7,RASPI_D8};
+
 void wiringPiSetup()
 {
 	gpio_chip = gpiod_chip_open("/dev/gpiochip0");
@@ -87,6 +92,7 @@ void wiringPiSetup()
 		gpio_direction[i] = -1;
 		gpio_value[i] = -1;
 		gpio_line[i] = NULL;
+		dataport_direction=-1;
 	}
 }
 
@@ -146,7 +152,6 @@ void pinMode(int pin, int dir)
 	}
 }
 
-
 void digitalWrite(int pin, int val)
 {
 	int status;
@@ -185,6 +190,100 @@ int digitalRead(int pin)
 
 	return gpio_value[pin] ? HIGH : LOW;;
 
+}
+
+void dataportSetup()
+{
+	int status;
+
+	if(dataport_direction < 0)
+        {
+		status=gpiod_chip_get_lines(gpio_chip,dataport_pins,9,&dataport_lines);
+                if(status<0)
+                {
+                        perror("gpiod_chip_get_lines");
+                        exit(-1);
+                }
+		status=gpiod_line_request_bulk_input(&dataport_lines,consumer);
+                if(status<0)
+                {
+                        perror("gpiod_line_request_bulk_input");
+                        exit(-1);
+                }
+		dataport_direction=0;
+		for(int i=0;i<9;i++)
+		{
+			dataport_values[i]=0;
+		}
+	}
+}
+
+void dataportMode(int dir)
+{
+	int status;
+	dataportSetup();
+
+	if (dir == INPUT)
+	{
+		if(dataport_direction==0)
+			return;
+		status=gpiod_line_set_direction_input_bulk(&dataport_lines);
+	        if(status!=0)
+                {
+                	perror("gpiod_line_set_direction_input_bulk");
+                       	exit(-1);
+                }
+		dataport_direction=0;
+	}
+	else
+	{
+		if(dataport_direction==1)
+			return;
+		status=gpiod_line_set_direction_output_bulk(&dataport_lines,dataport_values);
+                if(status!=0)
+                {
+                	perror("gpiod_line_set_direction_output_bulk");
+                       	exit(-1);
+                }
+		dataport_direction=1;
+	}
+}
+
+
+void dataportWrite(int value)
+{
+	int status;
+	dataportSetup();
+
+	for(int i=0;i<9;i++)
+	{
+	   	dataport_values[i]=(value>>i)&1;
+	}
+	status=gpiod_line_set_value_bulk(&dataport_lines,dataport_values);
+        if(status==-1)
+        {
+           	perror("gpiod_line_set_value_bulk");
+           	exit(-1);
+        }
+}
+
+int dataportRead()
+{
+	int status;
+	dataportSetup();
+
+	status=gpiod_line_get_value_bulk(&dataport_lines,dataport_values);
+        if(status==-1)
+        {
+           	perror("gpiod_line_get_value_bulk");
+           	exit(-1);
+        }
+	int value=0;
+	for(int i=0;i<9;i++)
+	{
+	   	value|=(dataport_values[i]&1)<<i;
+	}
+	return value;
 }
 
 void digitalSync(int usec_delay)
@@ -1122,7 +1221,9 @@ void send_word(int v)
 	{
 		digitalWrite(RASPI_DIR, HIGH);
 		epsilon_sleep();
-
+#ifndef GPIOMODE
+		dataportMode(OUTPUT);
+#else
 		pinMode(RASPI_D8, OUTPUT);
 		pinMode(RASPI_D7, OUTPUT);
 		pinMode(RASPI_D6, OUTPUT);
@@ -1132,7 +1233,7 @@ void send_word(int v)
 		pinMode(RASPI_D2, OUTPUT);
 		pinMode(RASPI_D1, OUTPUT);
 		pinMode(RASPI_D0, OUTPUT);
-
+#endif
 		current_send_recv_mode = 's';
 	}
 
@@ -1142,7 +1243,9 @@ void send_word(int v)
 		fprintf(stderr, "<%03x>", v);
 		fflush(stderr);
 	}
-
+#ifndef GPIOMODE
+	dataportWrite(v);
+#else
 	digitalWrite(RASPI_D8, (v & 0x100) ? HIGH : LOW);
 	digitalWrite(RASPI_D7, (v & 0x080) ? HIGH : LOW);
 	digitalWrite(RASPI_D6, (v & 0x040) ? HIGH : LOW);
@@ -1152,7 +1255,7 @@ void send_word(int v)
 	digitalWrite(RASPI_D2, (v & 0x004) ? HIGH : LOW);
 	digitalWrite(RASPI_D1, (v & 0x002) ? HIGH : LOW);
 	digitalWrite(RASPI_D0, (v & 0x001) ? HIGH : LOW);
-
+#endif
 	epsilon_sleep();
 	digitalWrite(RASPI_CLK, HIGH);
 	epsilon_sleep();
@@ -1254,6 +1357,9 @@ int recv_word(int timeout = 0)
 #ifndef USBMODE
 	if (current_send_recv_mode != 'r')
 	{
+#ifndef GPIOMODE
+		dataportMode(INPUT);
+#else
 		pinMode(RASPI_D8, INPUT);
 		pinMode(RASPI_D7, INPUT);
 		pinMode(RASPI_D6, INPUT);
@@ -1263,7 +1369,7 @@ int recv_word(int timeout = 0)
 		pinMode(RASPI_D2, INPUT);
 		pinMode(RASPI_D1, INPUT);
 		pinMode(RASPI_D0, INPUT);
-
+#endif
 		digitalWrite(RASPI_DIR, LOW);
 		epsilon_sleep();
 
@@ -1271,7 +1377,9 @@ int recv_word(int timeout = 0)
 	}
 
 	int v = 0;
-
+#ifndef GPIOMODE
+	v=dataportRead();
+#else
 	if (digitalRead(RASPI_D8) == HIGH) v |= 0x100;
 	if (digitalRead(RASPI_D7) == HIGH) v |= 0x080;
 	if (digitalRead(RASPI_D6) == HIGH) v |= 0x040;
@@ -1281,7 +1389,7 @@ int recv_word(int timeout = 0)
 	if (digitalRead(RASPI_D2) == HIGH) v |= 0x004;
 	if (digitalRead(RASPI_D1) == HIGH) v |= 0x002;
 	if (digitalRead(RASPI_D0) == HIGH) v |= 0x001;
-
+#endif
 	epsilon_sleep();
 	digitalWrite(RASPI_CLK, HIGH);
 	epsilon_sleep();
@@ -1681,6 +1789,9 @@ void reset_inout()
 
 	if (enable_data_port)
 	{
+#if !defined(USBMODE) && !defined(GPIOMODE)
+		dataportMode(INPUT);
+#else
 		pinMode(RASPI_D8, INPUT);
 		pinMode(RASPI_D7, INPUT);
 		pinMode(RASPI_D6, INPUT);
@@ -1690,7 +1801,7 @@ void reset_inout()
 		pinMode(RASPI_D2, INPUT);
 		pinMode(RASPI_D1, INPUT);
 		pinMode(RASPI_D0, INPUT);
-
+#endif
 		pinMode(RASPI_DIR, OUTPUT);
 		pinMode(RASPI_CLK, OUTPUT);
 
