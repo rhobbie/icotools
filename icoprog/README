@@ -14,7 +14,7 @@ http://www.clifford.at/icestorm/
 Installing (Raspberry PI)
 =========================
 
-Start by installing a RASPBIAN JESSIE image on an SD-card. Follow the
+Start by installing a RASPBIAN image on an SD-card. Follow the
 installation guide on the Raspberry PI web page:
 
 	https://www.raspberrypi.org/downloads/raspbian/
@@ -24,24 +24,12 @@ login to the Raspberry PI via ssh and execute the commands below
 to setup the IcoBoard environment.
 
 
-Expanding the root Filesystem
------------------------------
-
-Optionally expand the root filesystem to the entire SD card:
-
-	sudo raspi-config
-
-Select "Expand Filesystem" and reboot the Raspberry PI.
-
-
-Installing wiringPi
+Installing libgpiod
 -------------------
 
-IcoProg uses the wiringPi library. So we need to install it:
+IcoProg uses the libgpiod library. So we need to install it:
 
-	cd $HOME
-	git clone git://git.drogon.net/wiringPi
-	cd wiringPi && ./build
+	sudo apt install libgpiod-dev
 
 
 Installing IcoProg
