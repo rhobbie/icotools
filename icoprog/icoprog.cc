@@ -90,89 +90,89 @@ void wiringPiSetup()
 	}
 }
 
+void pinSetup(int pin)
+{
+	int status;
+
+	if (gpio_line[pin]==NULL)
+	{
+		gpio_line[pin]=gpiod_chip_get_line(gpio_chip,pin);
+                if(gpio_line[pin]==NULL)
+                {
+                        perror("gpiod_chip_get_line");
+                        exit(-1);
+                }
+                status=gpiod_line_request_input(gpio_line[pin],consumer);
+                if(status!=0)
+                {
+                	perror("gpiod_line_request_input");
+                       	exit(-1);
+                }
+		gpio_direction[pin] = 0;
+		gpio_value[pin] = 0;
+	}
+}
+
 void pinMode(int pin, int dir)
 {
 	int status;
-	if(gpio_line[pin]==NULL)
-	{
-		gpio_line[pin]=gpiod_chip_get_line(gpio_chip,pin);
-		if(gpio_line[pin]==NULL)
-		{
-			perror("gpiod_chip_get_line");
-			exit(-1);
-		}
-		if(dir==INPUT)
-		{
-			status=gpiod_line_request_input(gpio_line[pin],consumer);
-			if(status!=0)
-			{
-				perror("gpiod_line_request_input");
-				exit(-1);
-			}
-		}
-		else
-		{
-			if(gpio_value[pin]==-1)
-			{
-				gpio_value[pin]=LOW;
-			}
-			status=gpiod_line_request_output(gpio_line[pin],consumer,gpio_value[pin]);
-			if(status!=0)
-			{
-				perror("gpiod_line_request_output");
-				exit(-1);
-			}
-		}
-		gpio_direction[pin]=dir;
-	}
-	else if(gpio_direction[pin]!=dir)
-	{
-		if(dir==INPUT)
-		{
-			status=gpiod_line_set_direction_input(gpio_line[pin]);
-			if(status!=0)
-			{
-				perror("gpiod_line_set_direction_input");
-				exit(-1);
-			}
-		}
-		else
-		{
-			if(gpio_value[pin]==-1)
-			{
-				gpio_value[pin]=LOW;
-			}
-			status=gpiod_line_set_direction_output(gpio_line[pin],gpio_value[pin]);
-			if(status!=0)
-			{
-				perror("gpiod_line_set_direction_output");
-				exit(-1);
-			}
 
-		}
-		gpio_direction[pin]=dir;
+	pinSetup(pin);
+
+	if (dir == INPUT)
+	{
+		if (gpio_direction[pin] == 0)
+			return;
+
+                status=gpiod_line_set_direction_input(gpio_line[pin]);
+                if(status!=0)
+                {
+                        perror("gpiod_line_set_direction_input");
+                        exit(-1);
+                }
+                gpio_direction[pin] = 0;
+	}
+	else
+	{
+		if (gpio_direction[pin] == 1)
+			return;
+                status=gpiod_line_set_direction_output(gpio_line[pin],gpio_value[pin]);
+                if(status!=0)
+                {
+                	perror("gpiod_line_set_direction_output");
+                        exit(-1);
+                }
+		gpio_direction[pin] = 1;
 	}
 }
+
 
 void digitalWrite(int pin, int val)
 {
 	int status;
-	if(gpio_direction[pin]==OUTPUT && gpio_value[pin]!=val)
+
+	pinSetup(pin);
+	gpio_value[pin] = (val != LOW);
+
+	if (gpio_direction[pin] == 1) 
 	{
-		status=gpiod_line_set_value(gpio_line[pin],val); 
+		status=gpiod_line_set_value(gpio_line[pin],gpio_value[pin]); 
 		if(status==-1)
 		{
 			perror("gpiod_line_set_value");
 			exit(-1);
 		}
-		gpio_value[pin]=val;
+
 	}
 }
 
 int digitalRead(int pin)
 {
 	int status;
-	if(gpio_direction[pin]==INPUT)
+
+	pinSetup(pin);
+
+	if (gpio_direction[pin] == 0)
 	{
 		status=gpiod_line_get_value(gpio_line[pin]);
 		if(status==-1)
@@ -182,7 +182,9 @@ int digitalRead(int pin)
 		}
 		gpio_value[pin]=status;
 	}
-	return gpio_value[pin];
+
+	return gpio_value[pin] ? HIGH : LOW;;
+
 }
 
 void digitalSync(int usec_delay)
@@ -732,8 +734,8 @@ void prog_bitstream(bool reset_only = false)
 		if (byte < 0)
 			break;
 		for (int i = 7; i >= 0; i--) {
-			digitalWrite(RPI_ICE_MOSI, ((byte >> i) & 1) ? HIGH : LOW);
 			digitalWrite(RPI_ICE_CLK, LOW);
+			digitalWrite(RPI_ICE_MOSI, ((byte >> i) & 1) ? HIGH : LOW);
 			digitalWrite(RPI_ICE_CLK, HIGH);
 		}
 
