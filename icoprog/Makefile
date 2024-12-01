@@ -21,11 +21,11 @@ icoprog: icoprog.cc
 endif
 endif
 
-example.blif: example.v
-	yosys -p 'synth_ice40 -blif example.blif' example.v
+example.json: example.v
+	yosys -p 'synth_ice40 -json example.json' example.v
 
-example.asc: example.blif example.pcf
-	arachne-pnr -d 8k -p example.pcf -o example.asc example.blif
+example.asc: example.json example.pcf
+	nextpnr-ice40 --hx8k --package ct256 --pcf example.pcf --asc example.asc --json example.json
 
 example.bin: example.asc
 	icetime -d hx8k -c 100 example.asc
@@ -50,7 +50,7 @@ uninstall:
 	sudo rm -f /usr/local/bin/icoprog
 
 clean:
-	rm -f icoprog example.blif example.asc example.bin
+	rm -f icoprog example.json example.asc example.bin
 
 .PHONY: example_sram example_flash reset install clean
 

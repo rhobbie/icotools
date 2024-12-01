@@ -7,7 +7,7 @@ endif
 
 help:
 	@echo
-	@echo "make example.blif      run synthesis, generate BLIF netlist"
+	@echo "make example.json      run synthesis, generate JSON netlist"
 	@echo "make example.asc       run place and route, generate IceStorm ASCII file"
 	@echo "make example.bin       run timing analysis, generate iCE40 BIN file"
 	@echo
@@ -21,11 +21,11 @@ help:
 	@echo "make clean             remove output files"
 	@echo
 
-example.blif: example.v
-	yosys -p 'synth_ice40 -blif example.blif' example.v
+example.json: example.v
+	yosys -p 'synth_ice40 -json example.json' example.v
 
-example.asc: example.blif icoboard.pcf
-	arachne-pnr -d 8k -p icoboard.pcf -o example.asc example.blif
+example.asc: example.json icoboard.pcf
+	nextpnr-ice40 --hx8k --package ct256 --pcf icoboard.pcf --asc example.asc --json example.json
 
 example.bin: example.asc
 	icetime -d hx8k -c 25 example.asc
@@ -47,7 +47,7 @@ reset_boot:
 	$(SSH_RASPI) 'icoprog -b'
 
 clean:
-	rm example.blif example.asc example.bin
+	rm example.json example.asc example.bin
 
 .PHONY: prog_sram prog_flash reset_halt reset_boot clean
 

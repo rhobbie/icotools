@@ -35,7 +35,7 @@ RISC-V toolchains installed on your system, as outlined below.
 Installing the IceStorm Flow
 ============================
 
-The IceStorm flow consists of the IceStorm Tools, Arachne-PNR, and Yosys.
+The IceStorm flow consists of the IceStorm Tools, NextPNR, and Yosys.
 Follow the instructions on the IceStorm website to build the flow:
 
 	http://www.clifford.at/icestorm/#install

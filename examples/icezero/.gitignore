@@ -1,7 +1,7 @@
 defines.vh
 icezero.asc
 icezero.bin
-icezero.blif
+icezero.json
 memdata.dat
 testbench
 testbench.vcd

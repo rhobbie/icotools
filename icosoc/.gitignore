@@ -11,7 +11,7 @@
 /examples/*/icosoc.asc
 /examples/*/icosoc.bin
 /examples/*/icosoc.log
-/examples/*/icosoc.blif
+/examples/*/icosoc.json
 /examples/*/icosoc.c
 /examples/*/icosoc.h
 /examples/*/icosoc.mk

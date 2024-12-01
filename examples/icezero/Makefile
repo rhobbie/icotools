@@ -10,11 +10,11 @@ reset: icezprog
 icezprog: icezprog.c
 	gcc -o icezprog -Wall -Os icezprog.c -lgpiod -lrt -lstdc++
 
-icezero.blif: icezero.v memdata.dat defines.vh
-	yosys -p 'synth_ice40 -top top -blif icezero.blif' icezero.v
+icezero.json: icezero.v memdata.dat defines.vh
+	yosys -p 'synth_ice40 -top top -json icezero.json' icezero.v
 
-icezero.asc: icezero.blif icezero.pcf
-	arachne-pnr -d 8k -P tq144:4k -p icezero.pcf -o icezero.asc icezero.blif
+icezero.asc: icezero.json icezero.pcf
+	nextpnr-ice40 --hx8k --package tq144:4k --pcf icezero.pcf --asc icezero.asc --json icezero.json
 
 icezero.bin: icezero.asc
 	icetime -d hx8k -c 25 icezero.asc
@@ -33,7 +33,7 @@ testbench.vcd: testbench
 
 clean:
 	rm -f testbench testbench.vcd
-	rm -f icezero.blif icezero.asc icezero.bin
+	rm -f icezero.json icezero.asc icezero.bin
 	rm -f memdata.dat defines.vh
 
 .PHONY: all prog reset clean
