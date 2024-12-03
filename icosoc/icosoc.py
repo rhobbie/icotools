@@ -383,7 +383,7 @@ icosoc_v["20-clockgen"].append("""
     // -------------------------------
     // Reset Generator
 
-    reg [7:0] resetn_counter = 0;
+    reg [8:0] resetn_counter = 0;
     wire resetn = &resetn_counter;
 
     always @(posedge clk) begin
