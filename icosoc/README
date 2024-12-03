@@ -44,18 +44,20 @@ Follow the instructions on the IceStorm website to build the flow:
 Installing the RISC-V Toolchain
 ===============================
 
-Follow the instructions in the PicoRV32 documentation:
-https://github.com/cliffordwolf/picorv32#building-a-pure-rv32i-toolchain
+Follow the instructions in the RISC-V GNU Compiler Toolchain documentation:
+https://github.com/riscv-collab/riscv-gnu-toolchain
 
 IcoSoC can be configured with different ISA features (with and without
 compressed ISA, with or without multiply/divide instructions). To support
-all variations, different compiler toolchains must be built. To build all
-of them simply run:
+all variations, the toolchain must be built using the --enable-multilib option.
+Install the prerequisites and then run:
 
-	git clone git@github.com:cliffordwolf/picorv32.git
-	cd picorv32
-	make download-tools
-	make -j$(nproc) build-tools
+	sudo mkdir -p /opt/riscv
+	sudo chown $USER /opt/riscv
+	git clone https://github.com/riscv-collab/riscv-gnu-toolchain.git
+	cd riscv-gnu-toolchain
+	./configure --prefix=/opt/riscv --enable-multilib
+	make 
 
 
 IcoSoC Configuration File Format

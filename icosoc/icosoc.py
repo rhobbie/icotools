@@ -1103,9 +1103,8 @@ set_io HRAM_CK   N10
 icosoc_mk["10-top"].append("")
 
 icosoc_mk["10-top"].append("ICOSOC_ROOT ?= %s" % basedir)
-icosoc_mk["10-top"].append("RISCV_TOOLS_PREFIX ?= /opt/riscv32i%s%s/bin/riscv32-unknown-elf-" %
-        ("m" if enable_muldiv_isa else "", "c" if enable_compressed_isa else ""))
-
+icosoc_mk["10-top"].append("RISCV_TOOLS_PREFIX ?= /opt/riscv/bin/riscv64-unknown-elf-")
+icosoc_mk["10-top"].append("MARCH ?= rv32i%s%s" % ("m" if enable_muldiv_isa else "", "c" if enable_compressed_isa else ""))
 if enable_flashpmem:
     icosoc_mk["10-top"].append("LDSCRIPT ?= %s/common/riscv_flash.ld" % basedir)
 else:
@@ -1241,7 +1240,7 @@ icosoc_mk["60-simulation"].append("\tvvp -N testbench")
 
 if not opt.custom_firmware:
     icosoc_mk["70-firmware"].append("firmware.elf: %s/common/firmware.S %s/common/firmware.c %s/common/firmware.lds icosoc.cfg" % (basedir, basedir, basedir))
-    icosoc_mk["70-firmware"].append(("\t$(RISCV_TOOLS_PREFIX)gcc -Os %s%s%s-march=rv32i -ffreestanding " +
+    icosoc_mk["70-firmware"].append(("\t$(RISCV_TOOLS_PREFIX)gcc -Os %s%s%s-march=$(MARCH) -mabi=ilp32 -ffreestanding " +
             "-nostdlib -Wall -o firmware.elf %s/common/firmware.S %s/common/firmware.c \\") % (
             "-DFLASHPMEM " if enable_flashpmem else "",
             "-DNOFLASHBOOT " if enable_noflashboot else "",

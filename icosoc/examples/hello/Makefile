@@ -1,11 +1,11 @@
 CC = $(RISCV_TOOLS_PREFIX)gcc
-CFLAGS = --std=gnu99 -Os -MD -Wall
+CFLAGS = --std=gnu99 -Os -MD -Wall -march=$(MARCH) -mabi=ilp32
 OBJS = main.o icosoc.o
 
 default: help
 
 appimage.elf: $(OBJS)
-	$(CC) -T $(LDSCRIPT) -o appimage.elf $(OBJS)
+	$(CC) -T $(LDSCRIPT) -march=$(MARCH) -mabi=ilp32 -o appimage.elf $(OBJS)
 	chmod -x appimage.elf
 
 appimage.hex: appimage.elf
