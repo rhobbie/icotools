@@ -425,7 +425,7 @@ icosoc_v["30-sramif"].append("""
     assign SRAM_OE = (sram_wrlb || sram_wrub);
     assign SRAM_LB = (sram_wrlb || sram_wrub) ? !sram_wrlb : 0;
     assign SRAM_UB = (sram_wrlb || sram_wrub) ? !sram_wrub : 0;
-    assign HRAM_CK = 0;
+    assign HRAM_CS2n = 1;
 """)
 
 icosoc_v["30-raspif"].append("""
@@ -1009,14 +1009,14 @@ icosoc_v["15-moddecl"].append("    output SRAM_A16, SRAM_A17, SRAM_A18,")
 
 icosoc_v["15-moddecl"].append("    inout SRAM_D0, SRAM_D1, SRAM_D2, SRAM_D3, SRAM_D4, SRAM_D5, SRAM_D6, SRAM_D7,")
 icosoc_v["15-moddecl"].append("    inout SRAM_D8, SRAM_D9, SRAM_D10, SRAM_D11, SRAM_D12, SRAM_D13, SRAM_D14, SRAM_D15,")
-icosoc_v["15-moddecl"].append("    output SRAM_CE, SRAM_WE, SRAM_OE, SRAM_LB, SRAM_UB, HRAM_CK")
+icosoc_v["15-moddecl"].append("    output SRAM_CE, SRAM_WE, SRAM_OE, SRAM_LB, SRAM_UB, HRAM_CS2n")
 icosoc_v["15-moddecl"].append(");")
 
 iowires |= set("SRAM_A0 SRAM_A1 SRAM_A2 SRAM_A3 SRAM_A4 SRAM_A5 SRAM_A6 SRAM_A7".split())
 iowires |= set("SRAM_A8 SRAM_A9 SRAM_A10 SRAM_A11 SRAM_A12 SRAM_A13 SRAM_A14 SRAM_A15".split())
 iowires |= set("SRAM_D0 SRAM_D1 SRAM_D2 SRAM_D3 SRAM_D4 SRAM_D5 SRAM_D6 SRAM_D7".split())
 iowires |= set("SRAM_D8 SRAM_D9 SRAM_D10 SRAM_D11 SRAM_D12 SRAM_D13 SRAM_D14 SRAM_D15".split())
-iowires |= set("SRAM_CE SRAM_WE SRAM_OE SRAM_LB SRAM_UB HRAM_CK".split())
+iowires |= set("SRAM_CE SRAM_WE SRAM_OE SRAM_LB SRAM_UB HRAM_CS2n".split())
 
 icosoc_v["95-endmod"].append("endmodule")
 
@@ -1044,24 +1044,24 @@ set_io RASPI_36 D9
 set_io RASPI_38 C9
 set_io RASPI_40 C10
 
-set_io SRAM_A0  N2
-set_io SRAM_A1  K5
-set_io SRAM_A2  J5
-set_io SRAM_A3  M5
-set_io SRAM_A4  P4
-set_io SRAM_A5  N5
-set_io SRAM_A6  P5
-set_io SRAM_A7  P7
-set_io SRAM_A8  M6
-set_io SRAM_A9  P6
-set_io SRAM_A10 T8
-set_io SRAM_A11 T1
-set_io SRAM_A12 P2
-set_io SRAM_A13 R1
-set_io SRAM_A14 N3
-set_io SRAM_A15 P1
-set_io SRAM_A16 M11
-set_io SRAM_A17 P10
+set_io SRAM_A0  P1
+set_io SRAM_A1  N3
+set_io SRAM_A2  R1
+set_io SRAM_A3  P2
+set_io SRAM_A4  T1
+set_io SRAM_A5  T8
+set_io SRAM_A6  P6
+set_io SRAM_A7  M6
+set_io SRAM_A8  P7
+set_io SRAM_A9  M11
+set_io SRAM_A10 N10
+set_io SRAM_A11 P5
+set_io SRAM_A12 N5
+set_io SRAM_A13 P4
+set_io SRAM_A14 M5
+set_io SRAM_A15 J5
+set_io SRAM_A16 K5
+set_io SRAM_A17 N2
 set_io SRAM_A18 P8
 
 set_io SRAM_D0  T2
@@ -1087,7 +1087,7 @@ set_io SRAM_OE  L5
 set_io SRAM_LB  J4
 set_io SRAM_UB  J3
 
-set_io HRAM_CK   N10
+# set_io HRAM_CK   N10 # SRAM_A10
 # set_io HRAM_RWDS P8  # SRAM_A18
 # set_io HRAM_DQ0  T2  # SRAM_D0
 # set_io HRAM_DQ1  R3  # SRAM_D1
@@ -1097,7 +1097,7 @@ set_io HRAM_CK   N10
 # set_io HRAM_DQ5  T5  # SRAM_D5
 # set_io HRAM_DQ6  R6  # SRAM_D6
 # set_io HRAM_DQ7  T6  # SRAM_D7
-# set_io HRAM_CS2n P10 # SRAM_A17
+set_io HRAM_CS2n P10
 """)
 
 icosoc_mk["10-top"].append("")
